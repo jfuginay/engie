@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-primary: #0a0a0a;
+    --color-bg-secondary: #1a1a1a;
+    --color-bg-tertiary: #2a2a2a;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #a0a0a0;
+    --color-accent-cyan: #00ffff;
+    --color-accent-blue: #0ea5e9;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-dark-900 text-white font-mono;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-500;
+  }
+}
+
+@layer components {
+  .terminal-container {
+    @apply h-screen w-screen flex flex-col bg-dark-900 overflow-hidden;
+  }
+
+  .main-content {
+    @apply flex-1 flex overflow-hidden;
+  }
+
+  .tab-bar {
+    @apply flex items-center bg-dark-800 border-b border-dark-700 px-2 h-10;
+  }
+
+  .tab {
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white cursor-pointer transition-colors;
+  }
+
+  .tab.active {
+    @apply text-white bg-dark-700 rounded-t;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-neon-cyan text-black font-semibold rounded hover:bg-opacity-80 transition-all;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-dark-700 text-white rounded hover:bg-dark-600 transition-all;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded focus:outline-none focus:border-neon-cyan transition-colors;
+  }
+
+  .neon-glow {
+    @apply shadow-[0_0_20px_rgba(0,255,255,0.5)];
+  }
+}

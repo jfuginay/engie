@@ -1,0 +1,18 @@
+{
+  "id": "conv-1751435681348-ct0d445eu",
+  "projectPath": "/Users/jfuginay/Documents/dev/engie/engie",
+  "startTime": "2025-07-02T05:54:41.348Z",
+  "lastActivity": "2025-07-02T05:55:00.765Z",
+  "messages": [
+    {
+      "id": 1751435700765,
+      "type": "user",
+      "text": "what are my current tasks?",
+      "timestamp": "2025-07-02T05:55:00.765Z"
+    }
+  ],
+  "tasks": [],
+  "codeReferences": [],
+  "topics": [],
+  "mood": "neutral"
+}

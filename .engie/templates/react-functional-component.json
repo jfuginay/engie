@@ -1,0 +1,46 @@
+{
+  "id": "react-functional-component",
+  "name": "React Functional Component",
+  "description": "A modern React functional component with TypeScript",
+  "category": "component",
+  "language": "typescript",
+  "framework": "react",
+  "content": "import React from 'react';\n\ninterface {{componentName}}Props {\n  {{#each props}}\n  {{name}}: {{type}};\n  {{/each}}\n}\n\nexport const {{componentName}}: React.FC<{{componentName}}Props> = ({\n  {{#each props}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}\n}) => {\n  return (\n    <div className=\"{{className}}\">\n      <h1>{{componentName}}</h1>\n      {{content}}\n    </div>\n  );\n};",
+  "variables": [
+    {
+      "name": "componentName",
+      "type": "string",
+      "description": "Name of the component",
+      "required": true
+    },
+    {
+      "name": "className",
+      "type": "string",
+      "description": "CSS class name",
+      "defaultValue": "",
+      "required": false
+    },
+    {
+      "name": "props",
+      "type": "array",
+      "description": "Component props",
+      "defaultValue": [],
+      "required": false
+    },
+    {
+      "name": "content",
+      "type": "string",
+      "description": "Component content",
+      "defaultValue": "<p>Hello World</p>",
+      "required": false
+    }
+  ],
+  "usage": 0,
+  "lastUpdated": "2025-07-02T05:44:30.835Z",
+  "tags": [
+    "react",
+    "component",
+    "typescript",
+    "functional"
+  ]
+}

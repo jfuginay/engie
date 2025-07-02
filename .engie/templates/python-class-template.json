@@ -1,0 +1,44 @@
+{
+  "id": "python-class-template",
+  "name": "Python Class",
+  "description": "Python class with common methods",
+  "category": "class",
+  "language": "python",
+  "content": "class {{className}}:\n    \"\"\"{{description}}\"\"\"\n    \n    def __init__(self{{#each initParams}}, {{name}}: {{type}}{{/each}}):\n        \"\"\"Initialize {{className}}.\"\"\"\n        {{#each initParams}}\n        self.{{name}} = {{name}}\n        {{/each}}\n    \n    def __str__(self) -> str:\n        \"\"\"Return string representation.\"\"\"\n        return f\"{{className}}({{#each initParams}}{{name}}={self.{{name}}}{{#unless @last}}, {{/unless}}{{/each}})\"\n    \n    def __repr__(self) -> str:\n        \"\"\"Return detailed representation.\"\"\"\n        return self.__str__()\n    \n    {{#each methods}}\n    def {{name}}(self{{#each params}}, {{name}}: {{type}}{{/each}}) -> {{returnType}}:\n        \"\"\"{{description}}\"\"\"\n        {{implementation}}\n    {{/each}}",
+  "variables": [
+    {
+      "name": "className",
+      "type": "string",
+      "description": "Name of the class",
+      "required": true
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "description": "Class description",
+      "defaultValue": "A Python class",
+      "required": false
+    },
+    {
+      "name": "initParams",
+      "type": "array",
+      "description": "Constructor parameters",
+      "defaultValue": [],
+      "required": false
+    },
+    {
+      "name": "methods",
+      "type": "array",
+      "description": "Class methods",
+      "defaultValue": [],
+      "required": false
+    }
+  ],
+  "usage": 0,
+  "lastUpdated": "2025-07-02T05:44:30.835Z",
+  "tags": [
+    "python",
+    "class",
+    "oop"
+  ]
+}

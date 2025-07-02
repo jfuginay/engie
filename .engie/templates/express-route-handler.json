@@ -1,0 +1,75 @@
+{
+  "id": "express-route-handler",
+  "name": "Express Route Handler",
+  "description": "Express.js route handler with error handling",
+  "category": "function",
+  "language": "typescript",
+  "framework": "express",
+  "content": "import { Request, Response, NextFunction } from 'express';\n\nexport const {{handlerName}} = async (\n  req: Request<{{paramsType}}, {{responseType}}, {{bodyType}}>,\n  res: Response<{{responseType}}>,\n  next: NextFunction\n): Promise<void> => {\n  try {\n    {{#if validation}}\n    // Validate request\n    {{validation}}\n    {{/if}}\n    \n    // Process request\n    {{implementation}}\n    \n    res.status({{statusCode}}).json({{response}});\n  } catch (error) {\n    next(error);\n  }\n};",
+  "variables": [
+    {
+      "name": "handlerName",
+      "type": "string",
+      "description": "Name of the handler function",
+      "required": true
+    },
+    {
+      "name": "paramsType",
+      "type": "string",
+      "description": "Request params type",
+      "defaultValue": "any",
+      "required": false
+    },
+    {
+      "name": "responseType",
+      "type": "string",
+      "description": "Response type",
+      "defaultValue": "any",
+      "required": false
+    },
+    {
+      "name": "bodyType",
+      "type": "string",
+      "description": "Request body type",
+      "defaultValue": "any",
+      "required": false
+    },
+    {
+      "name": "statusCode",
+      "type": "number",
+      "description": "HTTP status code",
+      "defaultValue": 200,
+      "required": false
+    },
+    {
+      "name": "validation",
+      "type": "string",
+      "description": "Validation logic",
+      "defaultValue": "",
+      "required": false
+    },
+    {
+      "name": "implementation",
+      "type": "string",
+      "description": "Main logic",
+      "defaultValue": "// TODO: Implement",
+      "required": false
+    },
+    {
+      "name": "response",
+      "type": "string",
+      "description": "Response object",
+      "defaultValue": "{ success: true }",
+      "required": false
+    }
+  ],
+  "usage": 0,
+  "lastUpdated": "2025-07-02T05:44:30.835Z",
+  "tags": [
+    "express",
+    "route",
+    "handler",
+    "typescript",
+    "api"
+  ]
+}
