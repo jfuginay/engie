@@ -348,13 +348,13 @@ export const ENGIETerminal: React.FC = () => {
 🧠 Smart Task Management with Natural Language Processing
 
 🔥 NATURAL MODE: ENABLED
-┌───────────────────────────────────────────────────────────┐
-│ 🤖 All inputs are processed by Claude AI first           │
-│ 💬 Ask anything: "help me plan my week"                  │
-│ 📋 Create tasks: "I need to call mom tomorrow"           │
-│ 🎯 Get insights: "what should I focus on today?"         │
-│ ⚡ Click 🔥 button to toggle to direct command mode       │
-└───────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ 🤖 All inputs are processed by Claude AI first         │
+│ 💬 Ask anything: "help me plan my week"                │
+│ 📋 Create tasks: "I need to call mom tomorrow"         │
+│ 🎯 Get insights: "what should I focus on today?"       │
+│ ⚡ Click 🔥 button to toggle to direct command mode     │
+└─────────────────────────────────────────────────────────┘
 
 ⚙️ Settings: Cmd+, • 🔄 Auto-refresh: 10s • Type "help" for commands`;
     setHistory([{ content: welcome, type: 'welcome', timestamp: new Date() }]);
