@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { TaskMasterTask } from '../../shared/types';
+import { ProjectSetupDialog } from './ProjectSetupDialog';
 
 interface CommandHistory {
   command: string;
@@ -278,6 +279,12 @@ export const ENGIETerminal: React.FC = () => {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [naturalMode, setNaturalMode] = useState(true); // Start with natural mode enabled
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [pendingTasks, setPendingTasks] = useState<Array<{title: string; priority?: string; tags?: string[]}>>([]);
+  const [followUpExpected, setFollowUpExpected] = useState(false);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [projectCreationStatus, setProjectCreationStatus] = useState<'idle' | 'creating' | 'success' | 'error'>('idle');
+  const [isTaskWindowOpen, setIsTaskWindowOpen] = useState(false);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -302,11 +309,18 @@ export const ENGIETerminal: React.FC = () => {
       }
     };
 
+    // Listen for task window events
+    const handleTaskWindowClosed = () => {
+      setIsTaskWindowOpen(false);
+    };
+
     window.addEventListener('keydown', handleKeyboard);
+    window.engieAPI.on('task-window-closed', handleTaskWindowClosed);
     
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener('keydown', handleKeyboard);
+      window.engieAPI.removeAllListeners('task-window-closed');
     };
   }, []);
 
@@ -469,9 +483,21 @@ export const ENGIETerminal: React.FC = () => {
         timestamp: new Date().toISOString(),
         currentTasks: tasks,
         interfaceMode: 'terminal',
+        conversationId: activeConversationId || undefined,
       };
       
       const response = await window.engieAPI.ai.processMessage(input, context);
+      
+      // Update conversation state
+      if (response.conversationId) {
+        setActiveConversationId(response.conversationId);
+      }
+      if (response.pendingTasks) {
+        setPendingTasks(response.pendingTasks);
+      }
+      if (response.followUpExpected !== undefined) {
+        setFollowUpExpected(response.followUpExpected);
+      }
       
       // Display Claude's response with success indicator
       setHistory(prev => [...prev, { content: response.result, type: 'assistant', timestamp: new Date() }]);
@@ -558,6 +584,97 @@ export const ENGIETerminal: React.FC = () => {
     }
   };
 
+  const handleProjectCreation = async (config: any) => {
+    try {
+      setProjectCreationStatus('creating');
+      setHistory(prev => [...prev, { 
+        content: `🚀 Creating GitHub project "${config.projectName}"...`, 
+        type: 'system', 
+        timestamp: new Date() 
+      }]);
+      scrollToBottom();
+
+      // Create the project repository
+      const result = await window.engieAPI.github.createProject(config, process.cwd());
+      
+      if (result.success) {
+        setHistory(prev => [...prev, { 
+          content: `✅ Created project: ${result.repoUrl || result.localPath}`, 
+          type: 'system', 
+          timestamp: new Date() 
+        }]);
+
+        // Convert pending tasks to GitHub issues if repo was created
+        if (result.repoUrl && result.localPath) {
+          let issuesCreated = 0;
+          for (const task of pendingTasks) {
+            try {
+              await window.engieAPI.github.createIssue(
+                result.localPath, 
+                task.title, 
+                `Task from ENGIE conversation\n\nPriority: ${task.priority || 'medium'}`,
+                task.priority as 'high' | 'medium' | 'low' || 'medium'
+              );
+              issuesCreated++;
+            } catch (error) {
+              console.error('Failed to create issue:', error);
+            }
+          }
+          
+          setHistory(prev => [...prev, { 
+            content: `📋 Created ${issuesCreated} GitHub issues from pending tasks`, 
+            type: 'system', 
+            timestamp: new Date() 
+          }]);
+        }
+
+        // Initialize MCP connection if enabled
+        if (config.enableMCPConnection) {
+          try {
+            const mcpConnected = await window.engieAPI.mcpClaude.isConnected();
+            if (mcpConnected) {
+              setHistory(prev => [...prev, { 
+                content: `🔗 Connected to Claude Code MCP server`, 
+                type: 'system', 
+                timestamp: new Date() 
+              }]);
+            }
+          } catch (error) {
+            setHistory(prev => [...prev, { 
+              content: `⚠️ MCP connection failed: ${error}`, 
+              type: 'system', 
+              timestamp: new Date() 
+            }]);
+          }
+        }
+
+        // Clear conversation state
+        setPendingTasks([]);
+        setFollowUpExpected(false);
+        setActiveConversationId(null);
+        setProjectCreationStatus('success');
+      } else {
+        setHistory(prev => [...prev, { 
+          content: `❌ Failed to create project: ${result.error}`, 
+          type: 'system', 
+          timestamp: new Date() 
+        }]);
+        setProjectCreationStatus('error');
+      }
+
+    } catch (error) {
+      setHistory(prev => [...prev, { 
+        content: `❌ Project creation failed: ${error}`, 
+        type: 'system', 
+        timestamp: new Date() 
+      }]);
+      setProjectCreationStatus('error');
+    } finally {
+      setShowProjectDialog(false);
+      scrollToBottom();
+    }
+  };
+
   const showTasks = async () => {
     if (tasks.length === 0) {
       setHistory(prev => [...prev, { content: '📋 No tasks found', type: 'system', timestamp: new Date() }]);
@@ -627,16 +744,148 @@ ${generateInsight()}
         className="flex-1 overflow-y-auto p-4 text-gray-300"
       >
         {history.map((entry, index) => (
-          <div key={index} className="mb-2 whitespace-pre-wrap">
+          <div 
+            key={index} 
+            className={`mb-2 whitespace-pre-wrap p-3 rounded-lg ${
+              entry.type === 'user' 
+                ? 'bg-dark-800 border-l-4 border-cyan-400' 
+                : entry.type === 'assistant'
+                ? 'bg-gray-800 bg-opacity-50 border-l-4 border-green-400'
+                : entry.type === 'system'
+                ? 'bg-dark-900 border-l-2 border-gray-600'
+                : 'bg-dark-900'
+            }`}
+          >
+            {entry.type === 'user' && (
+              <span className="text-cyan-400 text-xs uppercase tracking-wider mr-2">You:</span>
+            )}
+            {entry.type === 'assistant' && (
+              <span className="text-green-400 text-xs uppercase tracking-wider mr-2">ENGIE:</span>
+            )}
             {entry.content}
           </div>
         ))}
         
-        {/* Live Task Display */}
-        <div className="border border-gray-600 rounded-lg p-4 mb-4 bg-dark-800">
-          <div className="text-cyan-400 font-semibold mb-2">📋 ACTIVE TASKS</div>
-          <TaskDisplay tasks={tasks} />
-        </div>
+        {/* Conversation Status */}
+        {(followUpExpected || pendingTasks.length > 0) && (
+          <div className="border border-orange-400 rounded-lg p-3 mb-4 bg-orange-900 bg-opacity-20">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-orange-400 font-semibold flex items-center gap-2">
+                <span>💬</span>
+                <span>ACTIVE CONVERSATION</span>
+              </div>
+              {pendingTasks.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (activeConversationId) {
+                      try {
+                        const result = await window.engieAPI.ai.finalizeConversation(activeConversationId);
+                        setHistory(prev => [...prev, { 
+                          content: `✅ Created ${result.created} tasks from conversation: ${result.tasks.join(', ')}`, 
+                          type: 'system', 
+                          timestamp: new Date() 
+                        }]);
+                        setPendingTasks([]);
+                        setFollowUpExpected(false);
+                        setActiveConversationId(null);
+                        await loadTasks();
+                        scrollToBottom();
+                      } catch (error) {
+                        setHistory(prev => [...prev, { 
+                          content: `❌ Failed to finalize conversation: ${error}`, 
+                          type: 'system', 
+                          timestamp: new Date() 
+                        }]);
+                        scrollToBottom();
+                      }
+                    }
+                  }}
+                  className="px-2 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded text-xs transition-colors flex items-center gap-1"
+                  title="Create all pending tasks and finish conversation"
+                >
+                  <span>✓</span>
+                  <span>Finalize ({pendingTasks.length} tasks)</span>
+                </button>
+              )}
+            </div>
+            {followUpExpected && (
+              <div className="text-orange-300 text-sm mb-2">
+                💭 Claude is waiting for your response to continue...
+              </div>
+            )}
+            {pendingTasks.length > 0 && (
+              <div className="text-orange-300 text-sm">
+                📝 {pendingTasks.length} pending task{pendingTasks.length !== 1 ? 's' : ''} ready to create:
+                <div className="mt-1 space-y-1">
+                  {pendingTasks.slice(0, 3).map((task, index) => (
+                    <div key={index} className="text-xs text-orange-200 pl-2">
+                      • {task.title}
+                    </div>
+                  ))}
+                  {pendingTasks.length > 3 && (
+                    <div className="text-xs text-orange-200 pl-2">
+                      ... and {pendingTasks.length - 3} more
+                    </div>
+                  )}
+                </div>
+                {pendingTasks.length >= 3 && (
+                  <button
+                    onClick={() => setShowProjectDialog(true)}
+                    className="mt-2 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs transition-colors flex items-center gap-1"
+                    title="Create GitHub project with these tasks"
+                  >
+                    <span>🚀</span>
+                    <span>Create Project</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Live Task Display - Hide when task window is popped out */}
+        {!isTaskWindowOpen && (
+          <div className="border border-gray-600 rounded-lg p-4 mb-4 bg-dark-800">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-cyan-400 font-semibold">📋 ACTIVE TASKS</div>
+              <button
+                onClick={() => {
+                  window.engieAPI.taskWindow.open();
+                  setIsTaskWindowOpen(true);
+                }}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-xs transition-colors flex items-center gap-1"
+                title="Pop out tasks to separate window"
+              >
+                <span>⬈</span>
+                <span>Pop Out</span>
+              </button>
+            </div>
+            <TaskDisplay tasks={tasks} />
+          </div>
+        )}
+
+        {/* Show minimized indicator when task window is open */}
+        {isTaskWindowOpen && (
+          <div className="border border-gray-600 rounded-lg p-3 mb-4 bg-dark-800 bg-opacity-50">
+            <div className="flex justify-between items-center">
+              <div className="text-gray-400 text-sm flex items-center gap-2">
+                <span>📋</span>
+                <span>Tasks opened in separate window</span>
+                <span className="text-xs text-gray-500">({tasks.length} total)</span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsTaskWindowOpen(false);
+                }}
+                className="px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs transition-colors flex items-center gap-1"
+                title="Show tasks here again"
+              >
+                <span>↩</span>
+                <span>Show Here</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input Line */}
@@ -685,6 +934,15 @@ ${generateInsight()}
           </span>
         </div>
       </div>
+
+      {/* Project Setup Dialog */}
+      <ProjectSetupDialog
+        isOpen={showProjectDialog}
+        onClose={() => setShowProjectDialog(false)}
+        onConfirm={handleProjectCreation}
+        projectName={pendingTasks.length > 0 ? `${pendingTasks[0].title.split(' ').slice(0, 3).join('-').toLowerCase()}` : ''}
+        taskCount={pendingTasks.length}
+      />
     </div>
   );
 };

@@ -10,10 +10,34 @@ export interface OrchestrationContext {
   workingDirectory?: string;
   gitStatus?: any;
   projectAnalysis?: any;
+  conversationId?: string;
+  isFollowUpExpected?: boolean;
+  pendingTasks?: Array<{
+    title: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high';
+    tags?: string[];
+  }>;
+}
+
+interface ConversationState {
+  id: string;
+  isActive: boolean;
+  pendingTasks: Array<{
+    title: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high';
+    tags?: string[];
+  }>;
+  followUpExpected: boolean;
+  lastActivity: Date;
+  projectContext?: string;
 }
 
 class AIOrchestrator {
   private initialized = false;
+  private conversationStates = new Map<string, ConversationState>();
+  private activeConversationId: string | null = null;
 
   async initialize(): Promise<boolean> {
     try {
@@ -38,23 +62,322 @@ class AIOrchestrator {
     }
   }
 
+  private startConversation(projectContext?: string): string {
+    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    this.conversationStates.set(conversationId, {
+      id: conversationId,
+      isActive: true,
+      pendingTasks: [],
+      followUpExpected: false,
+      lastActivity: new Date(),
+      projectContext
+    });
+    
+    this.activeConversationId = conversationId;
+    return conversationId;
+  }
+
+  private updateConversationState(conversationId: string, updates: Partial<ConversationState>) {
+    const state = this.conversationStates.get(conversationId);
+    if (state) {
+      Object.assign(state, updates, { lastActivity: new Date() });
+    }
+  }
+
+  private getActiveConversation(): ConversationState | null {
+    if (!this.activeConversationId) return null;
+    return this.conversationStates.get(this.activeConversationId) || null;
+  }
+
+  private extractTasksFromResponse(response: string): Array<{title: string; description?: string; priority?: 'low'|'medium'|'high'; tags?: string[]}> {
+    const tasks: Array<{title: string; description?: string; priority?: 'low'|'medium'|'high'; tags?: string[]}> = [];
+    
+    // Skip extraction if response looks like user input or system messages
+    const lowerResponse = response.toLowerCase();
+    const skipPatterns = [
+      'you:', 'user:', 'input:', 'command:', 'ls', 'help', 'status', 'clear',
+      'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank you'
+    ];
+    
+    if (skipPatterns.some(pattern => lowerResponse.includes(pattern)) && response.length < 100) {
+      return tasks; // Skip short responses that look like user input
+    }
+    
+    // Look for structured task lists in Claude's responses
+    const taskPatterns = [
+      /^\d+\.\s+(.+?)(?:\n|$)/gm,  // "1. Task name"
+      /^[-•*]\s+(.+?)(?:\n|$)/gm,  // "- Task name" or "• Task name"
+      /^(?:Task|TODO|Action|Step)\s*\d*\s*:\s*(.+?)(?:\n|$)/gmi  // "Task: name" or "TODO: name"
+    ];
+    
+    for (const pattern of taskPatterns) {
+      let match;
+      while ((match = pattern.exec(response)) !== null) {
+        const taskText = match[1].trim();
+        
+        // Filter out non-task content
+        if (this.isValidTaskText(taskText)) {
+          tasks.push({
+            title: taskText,
+            priority: this.detectPriority(taskText),
+            tags: this.detectTags(taskText)
+          });
+        }
+      }
+    }
+    
+    // Remove duplicates
+    const uniqueTasks = tasks.filter((task, index, self) => 
+      index === self.findIndex(t => t.title.toLowerCase() === task.title.toLowerCase())
+    );
+    
+    return uniqueTasks;
+  }
+
+  private isValidTaskText(text: string): boolean {
+    // Must be substantial enough to be a task
+    if (text.length < 10 || text.length > 200) return false;
+    
+    // Should contain action words
+    const actionWords = ['create', 'build', 'implement', 'design', 'develop', 'add', 'setup', 'configure', 'test', 'deploy', 'write', 'update', 'fix', 'install', 'prepare', 'record', 'edit', 'review', 'submit'];
+    const hasActionWord = actionWords.some(word => text.toLowerCase().includes(word));
+    
+    // Exclude questions and conversational responses
+    const excludePatterns = [
+      /^(what|how|why|when|where|which|would you|should we|do you|can you)/i,
+      /\?$/,
+      /^(yes|no|ok|sure|thanks)/i
+    ];
+    const isExcluded = excludePatterns.some(pattern => pattern.test(text));
+    
+    return hasActionWord && !isExcluded;
+  }
+
+  private detectPriority(text: string): 'low'|'medium'|'high' {
+    const highPriorityKeywords = ['urgent', 'critical', 'important', 'asap', 'immediately'];
+    const lowPriorityKeywords = ['later', 'eventual', 'nice to have', 'optional'];
+    
+    const lowerText = text.toLowerCase();
+    
+    if (highPriorityKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'high';
+    }
+    if (lowPriorityKeywords.some(keyword => lowerText.includes(keyword))) {
+      return 'low';
+    }
+    return 'medium';
+  }
+
+  private detectTags(text: string): string[] {
+    const tags: string[] = [];
+    
+    // Common project tags
+    if (/frontend|ui|interface|design/i.test(text)) tags.push('frontend');
+    if (/backend|api|server|database/i.test(text)) tags.push('backend');
+    if (/test|testing|spec/i.test(text)) tags.push('testing');
+    if (/deploy|deployment|production/i.test(text)) tags.push('deployment');
+    if (/research|investigate|explore/i.test(text)) tags.push('research');
+    if (/document|documentation|readme/i.test(text)) tags.push('documentation');
+    
+    return tags;
+  }
+
   async processMessage(message: string, context?: OrchestrationContext): Promise<EngieResponse> {
     if (!this.initialized) {
       throw new Error('AI orchestrator not initialized');
     }
 
     try {
+      // Handle conversation context
+      let conversationId = context?.conversationId;
+      if (!conversationId) {
+        conversationId = this.startConversation(context?.currentProject);
+      }
+
+      // Get or create conversation state
+      let conversationState = this.conversationStates.get(conversationId);
+      if (!conversationState) {
+        conversationId = this.startConversation(context?.currentProject);
+        conversationState = this.conversationStates.get(conversationId)!;
+      }
+
+      // Update context with conversation info
+      const enhancedContext = {
+        ...context,
+        conversationId,
+        isFollowUpExpected: conversationState.followUpExpected,
+        pendingTasks: conversationState.pendingTasks
+      };
+
       // Analyze the message to determine intent and required tools
-      const analysis = await this.analyzeMessage(message, context);
+      const analysis = await this.analyzeMessage(message, enhancedContext);
       
       // Execute the appropriate workflow
-      const result = await this.executeWorkflow(analysis, message, context);
+      const result = await this.executeWorkflow(analysis, message, enhancedContext);
       
-      return result;
+      // Check if user is confirming to create tasks or asking for breakdown
+      const isConfirmation = this.detectTaskConfirmation(message);
+      const isBreakdownRequest = this.detectBreakdownRequest(message);
+      
+      if (isConfirmation && conversationState.pendingTasks.length > 0) {
+        // User confirmed - finalize the conversation automatically
+        const finalizationResult = await this.finalizeConversation(conversationId);
+        result.result += `\n\n✅ Created ${finalizationResult.created} tasks: ${finalizationResult.tasks.join(', ')}`;
+        result.toolsUsed.push('Task Creation');
+        
+        // Clear conversation state
+        conversationState.pendingTasks = [];
+        conversationState.followUpExpected = false;
+      } else if (isBreakdownRequest) {
+        // User is asking for task breakdown - make sure Claude gets the context and responds with tasks
+        // The tasks will be extracted from Claude's response in the next condition
+        this.updateConversationState(conversationId, {
+          followUpExpected: false  // We expect Claude to provide tasks in response
+        });
+      }
+      
+      if (result.result && result.toolsUsed.includes('Claude')) {
+        // Only extract tasks from Claude's responses (not user input or system responses)
+        const extractedTasks = this.extractTasksFromResponse(result.result);
+        if (extractedTasks.length > 0) {
+          conversationState.pendingTasks.push(...extractedTasks);
+          this.updateConversationState(conversationId, {
+            pendingTasks: conversationState.pendingTasks,
+            followUpExpected: this.detectFollowUpExpected(result.result)
+          });
+        } else {
+          // Update follow-up expectation even if no tasks were extracted
+          this.updateConversationState(conversationId, {
+            followUpExpected: this.detectFollowUpExpected(result.result)
+          });
+        }
+      }
+
+      // Add conversation context to result
+      return {
+        ...result,
+        conversationId,
+        pendingTasks: conversationState.pendingTasks,
+        followUpExpected: conversationState.followUpExpected
+      };
+      
     } catch (error) {
       console.error('Error processing message:', error);
       throw error;
     }
+  }
+
+  private detectFollowUpExpected(response: string): boolean {
+    const followUpIndicators = [
+      '?', 'what do you think', 'would you like', 'should we', 'do you want',
+      'which option', 'how would you prefer', 'any questions', 'need clarification'
+    ];
+    
+    return followUpIndicators.some(indicator => 
+      response.toLowerCase().includes(indicator.toLowerCase())
+    );
+  }
+
+  private detectTaskConfirmation(message: string): boolean {
+    const confirmationPatterns = [
+      /\b(yes|yeah|yep|ok|okay|sure|sounds good|looks good|perfect|great)\b.*\b(add|create|make|generate|build)\b.*\b(task|todo|list)\b/i,
+      /\b(add|create|make|generate|build)\b.*\b(task|todo|list|all|these|those)\b/i,
+      /\b(go ahead|proceed|continue)\b.*\b(task|todo|create)\b/i
+    ];
+    
+    return confirmationPatterns.some(pattern => pattern.test(message));
+  }
+
+  private detectBreakdownRequest(message: string): boolean {
+    const breakdownPatterns = [
+      /\b(yes|yeah|yep|ok|okay|sure)\b.*\b(please|can you|will you)\b.*\b(break.*down|add.*todo|create.*task|make.*list)\b/i,
+      /\b(break.*down|break.*up)\b.*\b(into|to)\b.*\b(subtask|task|todo|step)\b/i,
+      /\b(please|can you|will you)\b.*\b(break.*down|add.*subtask|create.*task|make.*list)\b/i,
+      /\b(expand|detail|elaborate)\b.*\b(task|todo|step)\b/i
+    ];
+    
+    return breakdownPatterns.some(pattern => pattern.test(message));
+  }
+
+  async finalizeConversation(conversationId: string): Promise<{created: number; tasks: string[]}> {
+    const conversationState = this.conversationStates.get(conversationId);
+    if (!conversationState || conversationState.pendingTasks.length === 0) {
+      return { created: 0, tasks: [] };
+    }
+
+    const createdTasks: string[] = [];
+    
+    try {
+      // Create all pending tasks
+      for (const task of conversationState.pendingTasks) {
+        const priority = task.priority || 'medium';
+        
+        // Simple Task Manager expects just description and priority
+        await simpleTaskManager.createTask(task.title, priority as 'high' | 'medium' | 'low');
+        createdTasks.push(task.title);
+      }
+
+      // Clear pending tasks and mark conversation as complete
+      this.updateConversationState(conversationId, {
+        pendingTasks: [],
+        followUpExpected: false,
+        isActive: false
+      });
+
+      console.log(`✅ Finalized conversation ${conversationId}: Created ${createdTasks.length} tasks`);
+      
+      return { created: createdTasks.length, tasks: createdTasks };
+    } catch (error) {
+      console.error('Error finalizing conversation:', error);
+      throw error;
+    }
+  }
+
+  async getConversationSummary(conversationId: string): Promise<{
+    id: string;
+    pendingTasksCount: number;
+    followUpExpected: boolean;
+    lastActivity: Date;
+    tasks: Array<{title: string; priority?: string; tags?: string[]}>;
+  } | null> {
+    const state = this.conversationStates.get(conversationId);
+    if (!state) return null;
+
+    return {
+      id: state.id,
+      pendingTasksCount: state.pendingTasks.length,
+      followUpExpected: state.followUpExpected,
+      lastActivity: state.lastActivity,
+      tasks: state.pendingTasks
+    };
+  }
+
+  async getAllActiveConversations(): Promise<Array<{
+    id: string;
+    pendingTasksCount: number;
+    followUpExpected: boolean;
+    lastActivity: Date;
+  }>> {
+    const activeConversations: Array<{
+      id: string;
+      pendingTasksCount: number;
+      followUpExpected: boolean;
+      lastActivity: Date;
+    }> = [];
+
+    for (const [id, state] of this.conversationStates.entries()) {
+      if (state.isActive) {
+        activeConversations.push({
+          id,
+          pendingTasksCount: state.pendingTasks.length,
+          followUpExpected: state.followUpExpected,
+          lastActivity: state.lastActivity
+        });
+      }
+    }
+
+    return activeConversations.sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
   }
 
   private async analyzeMessage(message: string, context?: OrchestrationContext): Promise<any> {
@@ -861,6 +1184,19 @@ Make tasks SMART (Specific, Measurable, Achievable, Relevant, Time-bound). Focus
 
     ipcMain.handle('ai:isInitialized', async () => {
       return this.initialized;
+    });
+
+    // Conversation management handlers
+    ipcMain.handle('ai:finalizeConversation', async (_, conversationId: string) => {
+      return await this.finalizeConversation(conversationId);
+    });
+
+    ipcMain.handle('ai:getConversationSummary', async (_, conversationId: string) => {
+      return await this.getConversationSummary(conversationId);
+    });
+
+    ipcMain.handle('ai:getAllActiveConversations', async () => {
+      return await this.getAllActiveConversations();
     });
   }
 }
