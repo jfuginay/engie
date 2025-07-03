@@ -24,6 +24,7 @@ import { vectorStore } from './vector-store-simple';
 import { terminalService } from './terminal-service';
 import { gitHubManager } from './github-manager';
 import { mcpClaudeClient } from './mcp-claude-client';
+import { mcpTaskMasterClient } from './mcp-taskmaster-client';
 
 class EngieApp {
   private mainWindow: BrowserWindow | null = null;
@@ -63,7 +64,7 @@ class EngieApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.join(__dirname, '../preload/preload.js'),
+        preload: path.join(__dirname, '../../preload/preload/preload.js'),
       },
       titleBarStyle: 'hiddenInset',
       show: false,
@@ -79,7 +80,7 @@ class EngieApp {
       await this.mainWindow.loadURL('http://localhost:5173');
       this.mainWindow.webContents.openDevTools();
     } else {
-      await this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+      await this.mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
     }
 
     this.mainWindow.on('closed', () => {
@@ -102,7 +103,7 @@ class EngieApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.join(__dirname, '../preload/preload.js'),
+        preload: path.join(__dirname, '../../preload/preload/preload.js'),
       },
       titleBarStyle: 'hiddenInset',
       show: false,
@@ -117,7 +118,7 @@ class EngieApp {
     if (process.env.NODE_ENV === 'development') {
       await this.taskWindow.loadURL('http://localhost:5173/task-window.html');
     } else {
-      await this.taskWindow.loadFile(path.join(__dirname, '../renderer/task-window.html'));
+      await this.taskWindow.loadFile(path.join(__dirname, '../../renderer/task-window.html'));
     }
 
     this.taskWindow.on('closed', () => {
@@ -194,8 +195,39 @@ class EngieApp {
       // Initialize AI and supporting services
       console.log('Initializing AI and supporting services...');
       await terminalService.initialize();
-      await simpleTaskManager.initialize();
-      simpleTaskManager.registerIpcHandlers();
+      
+      // Try to initialize MCP TaskMaster first
+      let taskMasterInitialized = false;
+      try {
+        taskMasterInitialized = await mcpTaskMasterClient.initialize();
+        if (taskMasterInitialized) {
+          console.log('✅ MCP TaskMaster initialized successfully');
+          mcpTaskMasterClient.registerIpcHandlers();
+          
+          // Initialize n8n if webhook URL is available
+          const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+          if (n8nWebhookUrl) {
+            const n8nConfig = {
+              webhookUrl: n8nWebhookUrl,
+              apiKey: process.env.N8N_API_KEY,
+              timeout: 30000,
+              retryAttempts: 3
+            };
+            const n8nInitialized = await mcpTaskMasterClient.initializeN8n(n8nConfig);
+            console.log(`N8n integration ${n8nInitialized ? 'enabled' : 'disabled'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize MCP TaskMaster:', error);
+      }
+      
+      // Fall back to simple task manager if MCP TaskMaster failed
+      if (!taskMasterInitialized) {
+        await simpleTaskManager.initialize();
+        simpleTaskManager.registerIpcHandlers();
+        console.log('⚠️ Using Simple Task Manager as fallback');
+      }
+      
       await aiOrchestrator.initialize();
       await gitMonitor.initialize();
       await ragSystem.initialize();

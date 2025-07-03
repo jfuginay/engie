@@ -4,6 +4,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { ipcMain } from 'electron';
 import { apiKeyManager } from './api-key-manager';
 import type { TaskMasterTask } from '../shared/types';
+import { N8nClient, N8nConfig } from './services/n8n-client';
 
 export interface MCPTaskMasterConfig {
   command: string;
@@ -19,6 +20,7 @@ class MCPTaskMasterClient {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private n8nClient: N8nClient | null = null;
 
   async initialize(): Promise<boolean> {
     try {
@@ -555,6 +557,86 @@ class MCPTaskMasterClient {
     return debugInfo;
   }
 
+  async initializeN8n(config: N8nConfig): Promise<boolean> {
+    try {
+      this.n8nClient = N8nClient.getInstance(config);
+      
+      // Listen for n8n events
+      this.n8nClient.on('connected', () => {
+        console.log('N8n webhook connected');
+      });
+      
+      this.n8nClient.on('task-sent', (data) => {
+        console.log('Task sent to GitHub via n8n:', data);
+      });
+      
+      this.n8nClient.on('task-send-error', (data) => {
+        console.error('Failed to send task to GitHub:', data.error);
+      });
+      
+      return this.n8nClient.isAvailable();
+    } catch (error) {
+      console.error('Failed to initialize n8n client:', error);
+      return false;
+    }
+  }
+
+  async sendTaskToGitHub(taskId: string, metadata?: {
+    repository?: string;
+    labels?: string[];
+    assignees?: string[];
+    milestone?: string;
+  }): Promise<{ success: boolean; issueUrl?: string; error?: string }> {
+    if (!this.n8nClient || !this.n8nClient.isAvailable()) {
+      return { success: false, error: 'N8n client not available' };
+    }
+
+    const task = await this.getTask(taskId);
+    if (!task) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    const response = await this.n8nClient.sendTaskToGitHub(task, metadata);
+    
+    // If successful, update task with GitHub issue info
+    if (response.success && response.issueNumber) {
+      await this.updateTask(taskId, {
+        description: task.description + `\n\nGitHub Issue: ${response.issueUrl}`
+      });
+    }
+
+    return response;
+  }
+
+  async sendAllTasksToGitHub(metadata?: {
+    repository?: string;
+    labels?: string[];
+  }): Promise<{ sent: number; failed: number; results: any[] }> {
+    const tasks = await this.getTasks();
+    const results = [];
+    let sent = 0;
+    let failed = 0;
+
+    for (const task of tasks) {
+      // Only send pending tasks
+      if (task.status === 'pending' || task.status === 'in-progress') {
+        const result = await this.sendTaskToGitHub(task.id, metadata);
+        results.push({ taskId: task.id, ...result });
+        
+        if (result.success) {
+          sent++;
+        } else {
+          failed++;
+        }
+
+        // Small delay to avoid overwhelming n8n
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    return { sent, failed, results };
+  }
+
   registerIpcHandlers(): void {
     ipcMain.handle('taskMaster:getTasks', async () => {
       return await this.getTasks();
@@ -602,6 +684,23 @@ class MCPTaskMasterClient {
 
     ipcMain.handle('taskMaster:debugMCPStatus', async () => {
       return await this.debugMCPStatus();
+    });
+
+    // N8n GitHub integration handlers
+    ipcMain.handle('taskMaster:initializeN8n', async (_, config: N8nConfig) => {
+      return await this.initializeN8n(config);
+    });
+
+    ipcMain.handle('taskMaster:sendTaskToGitHub', async (_, taskId: string, metadata?: any) => {
+      return await this.sendTaskToGitHub(taskId, metadata);
+    });
+
+    ipcMain.handle('taskMaster:sendAllTasksToGitHub', async (_, metadata?: any) => {
+      return await this.sendAllTasksToGitHub(metadata);
+    });
+
+    ipcMain.handle('taskMaster:isN8nAvailable', async () => {
+      return this.n8nClient?.isAvailable() || false;
     });
   }
 }

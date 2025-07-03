@@ -1,0 +1,102 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient circle -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="secondaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.9" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background shape (rounded rectangle, not square) -->
+  <rect x="64" y="128" width="896" height="768" rx="160" ry="160" fill="url(#bgGradient)" stroke="url(#primaryGradient)" stroke-width="4"/>
+  
+  <!-- Neural network nodes and connections -->
+  <!-- Layer 1 (left) -->
+  <circle cx="200" cy="300" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="200" cy="400" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="200" cy="500" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="200" cy="600" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="200" cy="700" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  
+  <!-- Layer 2 (middle-left) -->
+  <circle cx="350" cy="320" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="350" cy="420" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="350" cy="520" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="350" cy="620" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  
+  <!-- Layer 3 (center) - Main ENGIE node -->
+  <circle cx="512" cy="450" r="32" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="512" cy="550" r="32" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  
+  <!-- Layer 4 (middle-right) -->
+  <circle cx="674" cy="320" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="674" cy="420" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="674" cy="520" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="674" cy="620" r="20" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  
+  <!-- Layer 5 (right) -->
+  <circle cx="824" cy="300" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="824" cy="400" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="824" cy="500" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="824" cy="600" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  <circle cx="824" cy="700" r="16" fill="url(#primaryGradient)" filter="url(#glow)"/>
+  
+  <!-- Neural connections (animated lines) -->
+  <!-- Layer 1 to Layer 2 -->
+  <line x1="216" y1="300" x2="334" y2="320" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="216" y1="400" x2="334" y2="420" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="216" y1="500" x2="334" y2="520" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="216" y1="600" x2="334" y2="620" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Layer 2 to Layer 3 -->
+  <line x1="370" y1="320" x2="480" y2="450" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="370" y1="420" x2="480" y2="450" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="370" y1="520" x2="480" y2="550" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="370" y1="620" x2="480" y2="550" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  
+  <!-- Layer 3 to Layer 4 -->
+  <line x1="544" y1="450" x2="654" y2="320" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="544" y1="450" x2="654" y2="420" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="544" y1="550" x2="654" y2="520" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  <line x1="544" y1="550" x2="654" y2="620" stroke="url(#secondaryGradient)" stroke-width="3" opacity="0.8"/>
+  
+  <!-- Layer 4 to Layer 5 -->
+  <line x1="694" y1="320" x2="808" y2="300" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="694" y1="420" x2="808" y2="400" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="694" y1="520" x2="808" y2="500" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  <line x1="694" y1="620" x2="808" y2="600" stroke="url(#secondaryGradient)" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Central ENGIE text -->
+  <text x="512" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="url(#secondaryGradient)">ENGIE</text>
+  <text x="512" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="normal" fill="url(#secondaryGradient)" opacity="0.8">Neural Gateway</text>
+  
+  <!-- Data flow indicators (small animated dots) -->
+  <circle cx="280" cy="360" r="4" fill="#00ffff" opacity="0.9">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="430" cy="485" r="4" fill="#00ffff" opacity="0.9">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+  </circle>
+  <circle cx="594" cy="465" r="4" fill="#00ffff" opacity="0.9">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="1s"/>
+  </circle>
+  <circle cx="744" cy="540" r="4" fill="#00ffff" opacity="0.9">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="1.5s"/>
+  </circle>
+</svg>
