@@ -3,9 +3,10 @@ import type { TaskMasterTask } from '../../shared/types';
 
 interface TaskDisplayProps {
   tasks: TaskMasterTask[];
+  onTaskClick?: (task: TaskMasterTask) => void;
 }
 
-export const TaskDisplay: React.FC<TaskDisplayProps> = ({ tasks }) => {
+export const TaskDisplay: React.FC<TaskDisplayProps> = ({ tasks, onTaskClick }) => {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'text-red-400';
@@ -36,7 +37,11 @@ export const TaskDisplay: React.FC<TaskDisplayProps> = ({ tasks }) => {
       {tasks.map((task, index) => (
         <div 
           key={task.id} 
-          className={`flex items-start gap-2 ${task.status === 'done' ? 'opacity-50' : ''}`}
+          onClick={() => onTaskClick?.(task)}
+          className={`flex items-start gap-2 cursor-pointer hover:bg-dark-700 hover:bg-opacity-50 rounded p-2 transition-colors ${
+            task.status === 'done' ? 'opacity-50' : ''
+          } ${onTaskClick ? 'hover:scale-[1.02]' : ''}`}
+          title="Click to view details"
         >
           <span className="text-gray-500 min-w-[2ch]">[{index + 1}]</span>
           <span>{getStatusIcon(task.status)}</span>
@@ -60,7 +65,23 @@ export const TaskDisplay: React.FC<TaskDisplayProps> = ({ tasks }) => {
                 {task.priority.toUpperCase()}
               </span>
             )}
+            {task.progress !== undefined && task.progress > 0 && (
+              <div className="mt-1">
+                <div className="w-full bg-gray-700 rounded-full h-1">
+                  <div
+                    className="bg-cyan-400 h-1 rounded-full transition-all"
+                    style={{ width: `${task.progress}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400">{task.progress}%</span>
+              </div>
+            )}
           </div>
+          {onTaskClick && (
+            <span className="text-gray-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              👁️
+            </span>
+          )}
         </div>
       ))}
     </div>

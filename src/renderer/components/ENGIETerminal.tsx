@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { TaskMasterTask } from '../../shared/types';
 import { ProjectSetupDialog } from './ProjectSetupDialog';
+import { TaskDisplay } from './TaskDisplay';
+import { TaskDetailDialog } from './TaskDetailDialog';
 
 interface CommandHistory {
   command: string;
@@ -285,6 +287,8 @@ export const ENGIETerminal: React.FC = () => {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [projectCreationStatus, setProjectCreationStatus] = useState<'idle' | 'creating' | 'success' | 'error'>('idle');
   const [isTaskWindowOpen, setIsTaskWindowOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskMasterTask | null>(null);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -675,6 +679,33 @@ export const ENGIETerminal: React.FC = () => {
     }
   };
 
+  const handleTaskClick = (task: TaskMasterTask) => {
+    setSelectedTask(task);
+    setShowTaskDetail(true);
+  };
+
+  const handleTaskSave = async (taskId: string, updates: Partial<TaskMasterTask>) => {
+    try {
+      await window.engieAPI.taskMaster.updateTask(taskId, updates);
+      await loadTasks(); // Refresh the task list
+      setShowTaskDetail(false);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      throw error;
+    }
+  };
+
+  const handleTaskDelete = async (taskId: string) => {
+    try {
+      await window.engieAPI.taskMaster.deleteTask(taskId);
+      await loadTasks(); // Refresh the task list
+      setShowTaskDetail(false);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      throw error;
+    }
+  };
+
   const showTasks = async () => {
     if (tasks.length === 0) {
       setHistory(prev => [...prev, { content: '📋 No tasks found', type: 'system', timestamp: new Date() }]);
@@ -860,7 +891,7 @@ ${generateInsight()}
                 <span>Pop Out</span>
               </button>
             </div>
-            <TaskDisplay tasks={tasks} />
+            <TaskDisplay tasks={tasks} onTaskClick={handleTaskClick} />
           </div>
         )}
 
@@ -943,74 +974,15 @@ ${generateInsight()}
         projectName={pendingTasks.length > 0 ? `${pendingTasks[0].title.split(' ').slice(0, 3).join('-').toLowerCase()}` : ''}
         taskCount={pendingTasks.length}
       />
+
+      {/* Task Detail Dialog */}
+      <TaskDetailDialog
+        task={selectedTask}
+        isOpen={showTaskDetail}
+        onClose={() => setShowTaskDetail(false)}
+        onSave={handleTaskSave}
+        onDelete={handleTaskDelete}
+      />
     </div>
   );
 };
-
-const TaskDisplay: React.FC<{ tasks: TaskMasterTask[] }> = ({ tasks }) => {
-  const activeTasks = tasks.filter(task => task.status !== 'done');
-  const completedTasks = tasks.filter(task => task.status === 'done');
-  
-  if (activeTasks.length === 0) {
-    return <div className="text-yellow-400">🎉 All caught up! No active tasks.</div>;
-  }
-
-  // Group by priority
-  const highPriority = activeTasks.filter(t => t.priority === 'high');
-  const mediumPriority = activeTasks.filter(t => t.priority === 'medium');
-  const lowPriority = activeTasks.filter(t => t.priority === 'low');
-
-  return (
-    <div className="space-y-2">
-      {highPriority.length > 0 && (
-        <div>
-          <div className="text-red-400 font-semibold text-xs">🔥 HIGH PRIORITY:</div>
-          {highPriority.map((task) => (
-            <div key={task.id} className="ml-4 text-red-300 text-xs">
-              [{tasks.indexOf(task) + 1}] {task.title.substring(0, 45)}
-              {task.title.length > 45 && '...'}
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {mediumPriority.length > 0 && (
-        <div>
-          <div className="text-yellow-400 font-semibold text-xs">⚡ MEDIUM PRIORITY:</div>
-          {mediumPriority.slice(0, 3).map((task) => (
-            <div key={task.id} className="ml-4 text-yellow-300 text-xs">
-              [{tasks.indexOf(task) + 1}] {task.title.substring(0, 45)}
-              {task.title.length > 45 && '...'}
-            </div>
-          ))}
-          {mediumPriority.length > 3 && (
-            <div className="ml-4 text-gray-500 text-xs">
-              ... and {mediumPriority.length - 3} more medium priority
-            </div>
-          )}
-        </div>
-      )}
-      
-      {lowPriority.length > 0 && (
-        <div>
-          <div className="text-gray-400 font-semibold text-xs">📋 LOW PRIORITY:</div>
-          {lowPriority.slice(0, 2).map((task) => (
-            <div key={task.id} className="ml-4 text-gray-400 text-xs">
-              [{tasks.indexOf(task) + 1}] {task.title.substring(0, 45)}
-              {task.title.length > 45 && '...'}
-            </div>
-          ))}
-          {lowPriority.length > 2 && (
-            <div className="ml-4 text-gray-600 text-xs">
-              ... and {lowPriority.length - 2} more low priority
-            </div>
-          )}
-        </div>
-      )}
-      
-      <div className="border-t border-gray-600 pt-2 text-xs text-gray-500">
-        📊 Total: {tasks.length} | Active: {activeTasks.length} | Completed: {completedTasks.length}
-      </div>
-    </div>
-  );
-}; 
