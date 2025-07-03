@@ -14,6 +14,14 @@ export interface EngieResponse {
   action?: string;
   result: string;
   toolsUsed: string[];
+  conversationId?: string;
+  pendingTasks?: Array<{
+    title: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high';
+    tags?: string[];
+  }>;
+  followUpExpected?: boolean;
 }
 
 export interface TaskMasterTask {
