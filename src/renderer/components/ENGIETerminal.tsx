@@ -349,11 +349,11 @@ export const ENGIETerminal: React.FC = () => {
 
 🔥 NATURAL MODE: ENABLED
 ┌───────────────────────────────────────────────────────┐
-│ 🤖 All inputs are processed by Claude AI first       │
-│ 💬 Ask anything: "help me plan my week"              │
-│ 📋 Create tasks: "I need to call mom tomorrow"       │
-│ 🎯 Get insights: "what should I focus on today?"     │
-│ ⚡ Click 🔥 button to toggle to direct command mode   │
+│ 🤖 All inputs are processed by Claude AI first         │
+│ 💬 Ask anything: "help me plan my week"                │
+│ 📋 Create tasks: "I need to call mom tomorrow"         │
+│ 🎯 Get insights: "what should I focus on today?"       │
+│ ⚡ Click 🔥 button to toggle to direct command mode     │
 └───────────────────────────────────────────────────────┘
 
 ⚙️ Settings: Cmd+, • 🔄 Auto-refresh: 10s • Type "help" for commands`;
