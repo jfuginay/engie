@@ -108,7 +108,10 @@ class AIOrchestrator {
     const taskPatterns = [
       /^\d+\.\s+(.+?)(?:\n|$)/gm,  // "1. Task name"
       /^[-•*]\s+(.+?)(?:\n|$)/gm,  // "- Task name" or "• Task name"
-      /^(?:Task|TODO|Action|Step)\s*\d*\s*:\s*(.+?)(?:\n|$)/gmi  // "Task: name" or "TODO: name"
+      /^(?:Task|TODO|Action|Step)\s*\d*\s*:\s*(.+?)(?:\n|$)/gmi,  // "Task: name" or "TODO: name"
+      /^\s*[-•*]\s+(.+?)(?:\n|$)/gm,  // Indented bullet points
+      /^\s*\d+\.\s+(.+?)(?:\n|$)/gm,  // Indented numbered lists
+      /^##?\s+(.+?)(?:\n|$)/gm,  // Markdown headers as potential tasks
     ];
     
     for (const pattern of taskPatterns) {
@@ -137,21 +140,57 @@ class AIOrchestrator {
 
   private isValidTaskText(text: string): boolean {
     // Must be substantial enough to be a task
-    if (text.length < 10 || text.length > 200) return false;
-    
-    // Should contain action words
-    const actionWords = ['create', 'build', 'implement', 'design', 'develop', 'add', 'setup', 'configure', 'test', 'deploy', 'write', 'update', 'fix', 'install', 'prepare', 'record', 'edit', 'review', 'submit'];
-    const hasActionWord = actionWords.some(word => text.toLowerCase().includes(word));
+    if (text.length < 5 || text.length > 300) return false;
     
     // Exclude questions and conversational responses
     const excludePatterns = [
       /^(what|how|why|when|where|which|would you|should we|do you|can you)/i,
       /\?$/,
-      /^(yes|no|ok|sure|thanks)/i
+      /^(yes|no|ok|okay|sure|thanks|thank you)$/i,
+      /^(i think|i believe|maybe|perhaps)/i,
+      /^(let me know|please|also)/i
     ];
     const isExcluded = excludePatterns.some(pattern => pattern.test(text));
     
-    return hasActionWord && !isExcluded;
+    if (isExcluded) return false;
+    
+    // Accept action words OR specification/requirement keywords
+    const actionWords = ['create', 'build', 'implement', 'design', 'develop', 'add', 'setup', 'configure', 'test', 'deploy', 'write', 'update', 'fix', 'install', 'prepare', 'record', 'edit', 'review', 'submit'];
+    const specificationWords = ['specification', 'requirements', 'overview', 'guidelines', 'documentation', 'analysis', 'research', 'planning', 'architecture', 'infrastructure', 'system', 'feature', 'interface', 'flow', 'journey', 'considerations'];
+    
+    const lowerText = text.toLowerCase();
+    const hasActionWord = actionWords.some(word => lowerText.includes(word));
+    const hasSpecWord = specificationWords.some(word => lowerText.includes(word));
+    
+    // Accept if it has action words, specification words, or looks like a task category
+    return hasActionWord || hasSpecWord || this.looksLikeTaskCategory(text);
+  }
+  
+  private looksLikeTaskCategory(text: string): boolean {
+    // Categories that commonly appear in project breakdowns
+    const categoryPatterns = [
+      /technical\s+requirements/i,
+      /user\s+experience/i,
+      /additional\s+specifications/i,
+      /photo.*capture/i,
+      /video.*sharing/i,
+      /stories?\s+feature/i,
+      /filters?\s+and\s+effects/i,
+      /privacy\s+and\s+security/i,
+      /platform\s+requirements/i,
+      /backend\s+infrastructure/i,
+      /data\s+storage/i,
+      /api\s+requirements/i,
+      /user\s+flow/i,
+      /ui\/ux\s+requirements/i,
+      /design\s+guidelines/i,
+      /performance\s+requirements/i,
+      /security\s+requirements/i,
+      /compliance.*legal/i,
+      /analytics.*metrics/i
+    ];
+    
+    return categoryPatterns.some(pattern => pattern.test(text));
   }
 
   private detectPriority(text: string): 'low'|'medium'|'high' {
