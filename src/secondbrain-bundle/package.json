@@ -1,0 +1,60 @@
+{
+  "name": "secondbrain-app",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build-mac": "electron-builder --mac",
+    "dist": "electron-builder --publish=never"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "AI-powered todo management terminal app",
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "commander": "^14.0.0",
+    "openai": "^5.8.2",
+    "xterm": "^5.3.0"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.secondbrain.app",
+    "productName": "SecondBrain",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg"
+    },
+    "dmg": {
+      "title": "SecondBrain",
+      "background": null,
+      "contents": [
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        }
+      ]
+    }
+  }
+}

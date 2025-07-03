@@ -96,17 +96,26 @@ class TerminalService extends EventEmitter {
       let args: string[] = [];
       
       if (process.platform === 'darwin') {
-        // Use macOS default shell
+        // Use macOS default shell with interactive flag
         shell = process.env.SHELL || '/bin/zsh';
+        args = ['-i']; // Interactive mode for proper shell environment
       } else {
         shell = '/bin/bash';
+        args = ['-i']; // Interactive mode
       }
 
-      // Set up environment
+      // Set up environment with expanded PATH for Claude CLI
+      const currentPath = process.env.PATH || '';
+      const nvmPath = '/Users/jfuginay/.nvm/versions/node/v20.19.3/bin';
+      const homebrewPath = '/opt/homebrew/bin';
+      const localBinPath = '/usr/local/bin';
+      
       const env = {
         ...process.env,
         TERM: 'xterm-256color',
-        PATH: process.env.PATH,
+        PATH: `${nvmPath}:${homebrewPath}:${localBinPath}:${currentPath}`,
+        HOME: os.homedir(),
+        USER: os.userInfo().username,
       };
 
       // Create the process

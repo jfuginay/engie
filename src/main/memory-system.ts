@@ -153,6 +153,15 @@ class MemorySystem {
   }
 
   async startConversation(projectPath?: string): Promise<string> {
+    // If there's already an active conversation for the same project, continue it
+    if (this.currentConversation && 
+        (!projectPath || this.currentConversation.projectPath === projectPath)) {
+      // Update last activity and return existing conversation
+      this.currentConversation.lastActivity = new Date();
+      return this.currentConversation.id;
+    }
+
+    // Create new conversation only if needed
     const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const context: ConversationContext = {
@@ -499,6 +508,13 @@ class MemorySystem {
     }
   }
 
+  async pauseConversation(): Promise<void> {
+    // Save conversation but don't end it - for tab switching
+    if (this.currentConversation) {
+      await this.saveConversation(this.currentConversation);
+    }
+  }
+
   private async generateConversationSummary(conversation: ConversationContext): Promise<string> {
     try {
       const recentMessages = conversation.messages.slice(-10);
@@ -544,6 +560,10 @@ class MemorySystem {
 
     ipcMain.handle('memory:endConversation', async () => {
       return await this.endConversation();
+    });
+
+    ipcMain.handle('memory:pauseConversation', async () => {
+      return await this.pauseConversation();
     });
   }
 }

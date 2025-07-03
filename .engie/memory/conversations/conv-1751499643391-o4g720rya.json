@@ -1,0 +1,46 @@
+{
+  "id": "conv-1751499643391-o4g720rya",
+  "startTime": "2025-07-02T23:40:43.391Z",
+  "lastActivity": "2025-07-02T23:41:31.393Z",
+  "messages": [
+    {
+      "id": 1751499660549,
+      "type": "user",
+      "text": "engie list tasks",
+      "timestamp": "2025-07-02T23:41:00.549Z"
+    },
+    {
+      "id": 1751499664472,
+      "type": "assistant",
+      "text": "Here is your current task list from the live system:\n\n1. \"Untitled Task\" (ID: 1751499660564)\n   - Status: Pending\n   - Priority: Medium\n   - Created: July 2, 2025 23:41:00\n\nI notice this is an untitled task. Would you like to:\n1. Give this task a proper title?\n2. Add a description or details?\n3. Set a specific priority level?\n4. Create additional tasks?\n\nLet me know how I can help you organize your tasks more effectively!",
+      "timestamp": "2025-07-02T23:41:04.471Z",
+      "thought": "Analyzing your request... Retrieving your current tasks. Generating intelligent response with full context.",
+      "toolsUsed": [
+        "TaskMaster",
+        "Claude"
+      ]
+    },
+    {
+      "id": 1751499686101,
+      "type": "user",
+      "text": "engie add \"shoot demo video\" to my tasks for today",
+      "timestamp": "2025-07-02T23:41:26.101Z"
+    },
+    {
+      "id": 1751499691393,
+      "type": "assistant",
+      "text": "I'll help you add a new task for the demo video.\n\n✓ Created new task: \"shoot demo video\"\n- Status: Pending\n- Priority: Medium\n- Due: Today (July 2, 2025)\n\nYour current tasks are now:\n\n1. \"Untitled Task\"\n   - Status: Pending\n   - Priority: Medium\n   - Created: July 2, 2025 23:41:26\n\n2. \"shoot demo video\" (Just added)\n   - Status: Pending\n   - Priority: Medium\n   - Due: Today (July 2, 2025)\n\nWould you like to:\n1. Add specific details about what needs to be demonstrated in the video?\n2. Break this into subtasks (like planning, recording, editing)?\n3. Set a specific time deadline for today?\n4. Delete the untitled task if it's no longer needed?\n\nLet me know how you'd like to proceed with organizing these tasks!",
+      "timestamp": "2025-07-02T23:41:31.392Z",
+      "thought": "Analyzing your request... Creating a new task based on your request. Retrieving your current tasks. Generating intelligent response with full context.",
+      "toolsUsed": [
+        "TaskMaster",
+        "TaskMaster",
+        "Claude"
+      ]
+    }
+  ],
+  "tasks": [],
+  "codeReferences": [],
+  "topics": [],
+  "mood": "focused"
+}

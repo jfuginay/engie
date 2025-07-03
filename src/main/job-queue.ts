@@ -42,9 +42,7 @@ class JobQueueManager {
 
   private createQueue(name: string): Bull.Queue<JobData> {
     if (!this.isRedisAvailable) {
-      console.log(`Creating in-memory queue: ${name}`);
-      // When Redis is not available, we should skip Bull queue creation entirely
-      // and use a simple in-memory queue implementation
+      console.log(`Redis unavailable, creating in-memory queue: ${name}`);
       return this.createInMemoryQueue(name);
     }
 
@@ -71,35 +69,77 @@ class JobQueueManager {
   }
 
   private createInMemoryQueue(name: string): Bull.Queue<JobData> {
-    // Create a mock Bull queue that works in-memory
-    const mockQueue = {
+    // Simple in-memory job processing without Bull queue
+    const inMemoryJobs: Map<string, { id: string; data: JobData; status: 'pending' | 'processing' | 'completed' | 'failed' }> = new Map();
+    
+    const inMemoryQueue = {
       name,
-      add: async (jobType: string, data: JobData, options?: Bull.JobOptions) => {
-        console.log(`Mock queue ${name}: Added job ${jobType}`, data);
-        // Immediately process the job for in-memory simulation
-        setTimeout(() => {
-          console.log(`Mock queue ${name}: Processing job ${jobType}`);
-        }, 100);
-        return { id: Date.now() } as any;
+      add: async (data: JobData, options?: Bull.JobOptions) => {
+        const jobId = Date.now().toString();
+        const job = { id: jobId, data, status: 'pending' as const };
+        inMemoryJobs.set(jobId, job);
+        console.log(`In-memory queue ${name}: Added job ${jobId}`, data);
+        return { id: jobId, data } as any;
       },
-      process: (processor: any) => {
-        console.log(`Mock queue ${name}: Processor registered`);
+      process: (processor: (job: any) => Promise<any>) => {
+        console.log(`In-memory queue ${name}: Processor registered`);
+        const processJobs = async () => {
+          for (const [jobId, job] of inMemoryJobs.entries()) {
+            if (job.status === 'pending') {
+              job.status = 'processing';
+              try {
+                console.log(`Processing job ${jobId} in queue ${name}`);
+                await processor({ id: jobId, data: job.data });
+                job.status = 'completed';
+                inMemoryJobs.delete(jobId);
+                console.log(`Job ${jobId} completed successfully`);
+              } catch (error) {
+                console.error(`Job ${jobId} failed in queue ${name}:`, error);
+                job.status = 'failed';
+              }
+            }
+          }
+        };
+        
+        const intervalId = setInterval(processJobs, 1000);
+        return () => clearInterval(intervalId);
       },
       on: (event: string, handler: any) => {
-        console.log(`Mock queue ${name}: Event listener registered for ${event}`);
+        console.log(`In-memory queue ${name}: Event listener registered for ${event}`);
       },
       close: async () => {
-        console.log(`Mock queue ${name}: Closed`);
+        inMemoryJobs.clear();
+        console.log(`In-memory queue ${name}: Closed`);
       },
-      getJob: async (id: any) => null,
-      getJobs: async () => [],
-      clean: async () => {},
-      pause: async () => {},
-      resume: async () => {},
+      getJob: async (id: any) => {
+        const job = inMemoryJobs.get(id);
+        return job ? { id: job.id, data: job.data } : null;
+      },
+      getJobs: async () => Array.from(inMemoryJobs.values()).map(job => ({ id: job.id, data: job.data })),
+      getJobCounts: async () => ({
+        waiting: Array.from(inMemoryJobs.values()).filter(j => j.status === 'pending').length,
+        active: Array.from(inMemoryJobs.values()).filter(j => j.status === 'processing').length,
+        completed: 0,
+        failed: Array.from(inMemoryJobs.values()).filter(j => j.status === 'failed').length,
+        delayed: 0
+      }),
+      empty: async () => {
+        inMemoryJobs.clear();
+      },
+      addBulk: async (jobs: Array<{ data: JobData; opts?: Bull.JobOptions }>) => {
+        return Promise.all(jobs.map(job => inMemoryQueue.add(job.data, job.opts)));
+      },
+      getFailed: async () => Array.from(inMemoryJobs.values()).filter(j => j.status === 'failed').map(job => ({
+        id: job.id,
+        data: job.data,
+        retry: async () => {
+          job.status = 'pending';
+        }
+      }))
     } as any;
 
-    this.queues.set(name, mockQueue);
-    return mockQueue;
+    this.queues.set(name, inMemoryQueue);
+    return inMemoryQueue;
   }
 
   async addJob(

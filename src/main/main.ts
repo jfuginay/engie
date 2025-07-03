@@ -1,11 +1,19 @@
 import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import * as path from 'path';
-import 'dotenv/config';
+
+// Only load dotenv in development
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    require('dotenv').config();
+  } catch (error) {
+    console.warn('dotenv not available:', error);
+  }
+}
 import { apiKeyManager } from './api-key-manager';
 import { claudeCliManager } from './claude-cli-manager';
-import { backgroundProcessor } from './background-processor';
+// import { backgroundProcessor } from './background-processor';
 import { claudeAIService } from './claude-ai-service';
-import { mcpTaskMasterClient } from './mcp-taskmaster-client';
+import { simpleTaskManager } from './simple-task-manager';
 import { aiOrchestrator } from './ai-orchestrator';
 import { gitMonitor } from './git-monitor';
 import { ragSystem } from './rag-system';
@@ -135,12 +143,14 @@ class EngieApp {
       // Initialize core services
       console.log('Initializing core services...');
       await claudeCliManager.initialize();
-      await backgroundProcessor.start();
+      // TEMPORARILY DISABLED: Background processor was spamming Claude API
+      // await backgroundProcessor.start();
       
       // Initialize AI and supporting services
       console.log('Initializing AI and supporting services...');
       await terminalService.initialize();
-      await mcpTaskMasterClient.initialize();
+      await simpleTaskManager.initialize();
+      simpleTaskManager.registerIpcHandlers();
       await aiOrchestrator.initialize();
       await gitMonitor.initialize();
       await ragSystem.initialize();
@@ -165,10 +175,10 @@ class EngieApp {
       }
       
       try {
-        mcpTaskMasterClient.registerIpcHandlers();
-        console.log('✅ MCP TaskMaster Client IPC handlers registered');
+        // Simple Task Manager handlers already registered above
+        console.log('✅ Simple Task Manager IPC handlers registered');
       } catch (error) {
-        console.error('❌ Failed to register MCP TaskMaster Client IPC handlers:', error);
+        console.error('❌ Failed to register Simple Task Manager IPC handlers:', error);
       }
       
       try {
@@ -222,6 +232,18 @@ class EngieApp {
 
     // Terminal handlers are now registered by terminalService.registerIpcHandlers()
     // No need for simple terminal handler - using proper terminal service instead
+
+    // Debug Task Manager status
+    ipcMain.handle('debug:mcpStatus', async () => {
+      console.log('🔍 DEBUG: Checking Simple Task Manager status...');
+      try {
+        const debug = await simpleTaskManager.debugStatus();
+        return debug;
+      } catch (error) {
+        console.error('Debug Task Manager status failed:', error);
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    });
   }
 }
 

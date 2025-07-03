@@ -1,0 +1,17 @@
+{
+  "project": {
+    "name": "ENGIE",
+    "type": "nodejs",
+    "root": "/Users/jfuginay/Documents/dev/engie/engie"
+  },
+  "models": {
+    "main": "anthropic/claude-3-sonnet-20240229",
+    "research": "anthropic/claude-3-sonnet-20240229",
+    "fallback": "anthropic/claude-3-haiku-20240307"
+  },
+  "settings": {
+    "autoSave": true,
+    "maxTasks": 100,
+    "defaultPriority": "medium"
+  }
+} 

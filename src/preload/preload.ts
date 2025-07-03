@@ -42,10 +42,14 @@ const engieAPI = {
     getTask: (id: string) => ipcRenderer.invoke('taskMaster:getTask', id),
     createTask: (description: string) => ipcRenderer.invoke('taskMaster:createTask', description),
     updateTaskStatus: (id: string, status: string) => ipcRenderer.invoke('taskMaster:updateStatus', id, status),
+    updateTask: (id: string, updates: { title?: string; description?: string; priority?: 'high' | 'medium' | 'low' }) => ipcRenderer.invoke('taskMaster:updateTask', id, updates),
+    deleteTask: (id: string) => ipcRenderer.invoke('taskMaster:deleteTask', id),
     expandTask: (id: string) => ipcRenderer.invoke('taskMaster:expandTask', id),
     analyzeComplexity: () => ipcRenderer.invoke('taskMaster:analyzeComplexity'),
     research: (query: string) => ipcRenderer.invoke('taskMaster:research', query),
     getNextTask: () => ipcRenderer.invoke('taskMaster:getNextTask'),
+    isConnected: () => ipcRenderer.invoke('taskMaster:isConnected'),
+    debugMCPStatus: () => ipcRenderer.invoke('taskMaster:debugMCPStatus'),
   },
 
   // Git Monitor
@@ -89,6 +93,7 @@ const engieAPI = {
     recordTask: (projectPath: string, taskId: string) => 
       ipcRenderer.invoke('memory:recordTask', projectPath, taskId),
     endConversation: () => ipcRenderer.invoke('memory:endConversation'),
+    pauseConversation: () => ipcRenderer.invoke('memory:pauseConversation'),
   },
 
   // Terminal

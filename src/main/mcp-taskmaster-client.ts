@@ -3,7 +3,6 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { spawn, ChildProcess } from 'child_process';
 import { ipcMain } from 'electron';
 import { apiKeyManager } from './api-key-manager';
-import { taskStorage } from './task-storage-simple';
 import type { TaskMasterTask } from '../shared/types';
 
 export interface MCPTaskMasterConfig {
@@ -29,10 +28,10 @@ class MCPTaskMasterClient {
         return false;
       }
 
-      // Configuration for TaskMaster MCP server using claude-task-master
+      // Configuration for TaskMaster MCP server using task-master-ai (most actively maintained)
       const config: MCPTaskMasterConfig = {
         command: 'npx',
-        args: ['-y', 'task-master-ai'],
+        args: ['-y', 'task-master-mcp'],
         env: {
           ...process.env,
           ANTHROPIC_API_KEY: anthropicKey,
@@ -180,49 +179,33 @@ class MCPTaskMasterClient {
 
   // TaskMaster-specific methods
   async getTasks(): Promise<TaskMasterTask[]> {
-    // First, get tasks from local storage
-    const localTasks = await taskStorage.getTasks();
-    
     if (!this.isConnected) {
-      console.warn('TaskMaster MCP not connected, using local storage');
-      return localTasks;
+      console.warn('TaskMaster MCP not connected, returning empty array');
+      return [];
     }
     
     try {
-      // Get tasks from MCP
-      const result = await this.callTool('get_tasks', {});
+      // Get tasks directly from MCP - single source of truth
+      const result = await this.callTool('get_tasks', {
+        projectRoot: process.cwd()
+      });
       const mcpTasks = this.parseTasksResponse(result);
       
-      // Sync MCP tasks to local storage
-      for (const mcpTask of mcpTasks) {
-        const existingTask = await taskStorage.getTask(mcpTask.id);
-        if (!existingTask) {
-          await taskStorage.createTask({ ...mcpTask, syncedWithMCP: true });
-        } else {
-          await taskStorage.updateTask(mcpTask.id, { ...mcpTask, syncedWithMCP: true });
-        }
-      }
-      
-      // Mark local tasks that exist in MCP as synced
-      const mcpTaskIds = new Set(mcpTasks.map(t => t.id));
-      const tasksToSync = localTasks.filter(t => mcpTaskIds.has(t.id) && !t.syncedWithMCP);
-      if (tasksToSync.length > 0) {
-        await taskStorage.markTasksAsSynced(tasksToSync.map(t => t.id));
-      }
-      
-      // Return merged list (MCP tasks + local-only tasks)
-      const mergedTasks = await taskStorage.getTasks();
-      return mergedTasks;
+      console.log(`MCP TaskMaster: Retrieved ${mcpTasks.length} tasks from task-master-ai`);
+      return mcpTasks;
     } catch (error) {
       console.error('Error getting tasks from MCP:', error);
-      // Fallback to local storage
-      return localTasks;
+      // Return empty array instead of fallback to avoid confusion about source of truth
+      return [];
     }
   }
 
   async getTask(id: string): Promise<TaskMasterTask | null> {
     try {
-      const result = await this.callTool('get_task', { task_id: id });
+      const result = await this.callTool('get_task', { 
+        id: id,
+        projectRoot: process.cwd()
+      });
       return this.parseTaskResponse(result);
     } catch (error) {
       console.error('Error getting task:', error);
@@ -231,76 +214,147 @@ class MCPTaskMasterClient {
   }
 
   async createTask(description: string, priority: 'high' | 'medium' | 'low' = 'medium'): Promise<TaskMasterTask | null> {
-    // Create task locally first
-    const localTask = await taskStorage.createTask({
-      title: description,
-      description,
-      priority,
-      status: 'pending',
-      syncedWithMCP: false,
-      localOnly: !this.isConnected,
-    });
-    
     if (!this.isConnected) {
-      console.warn('TaskMaster MCP not connected, created local-only task');
-      return localTask;
+      console.warn('TaskMaster MCP not connected, cannot create task');
+      return null;
     }
     
     try {
-      // Try to create in MCP
+      // Create task directly in MCP - single source of truth
       const result = await this.callTool('add_task', { 
         description,
-        priority 
+        priority,
+        projectRoot: process.cwd()
       });
       const mcpTask = this.parseTaskResponse(result);
       
       if (mcpTask) {
-        // Update local task with MCP data and mark as synced
-        const updatedTask = await taskStorage.updateTask(localTask.id, {
-          ...mcpTask,
-          syncedWithMCP: true,
-          localOnly: false,
-        });
-        return updatedTask;
+        console.log(`MCP TaskMaster: Created task "${mcpTask.title}" with ID ${mcpTask.id}`);
+        return mcpTask;
       }
       
-      return localTask;
+      return null;
     } catch (error) {
       console.error('Error creating task in MCP:', error);
-      return localTask;
+      return null;
     }
   }
 
   async updateTaskStatus(id: string, status: TaskMasterTask['status']): Promise<boolean> {
-    // Update locally first
-    const updatedTask = await taskStorage.updateTask(id, { status });
-    if (!updatedTask) return false;
-    
-    if (!this.isConnected || updatedTask.localOnly) {
-      return true;
+    if (!this.isConnected) {
+      console.warn('TaskMaster MCP not connected, cannot update task status');
+      return false;
     }
     
     try {
-      // Try to update in MCP
+      // Update task directly in MCP - single source of truth
       await this.callTool('set_task_status', { 
-        task_id: id, 
-        status 
+        id: id, 
+        status,
+        projectRoot: process.cwd()
       });
       
-      // Mark as synced
-      await taskStorage.updateTask(id, { syncedWithMCP: true });
+      console.log(`MCP TaskMaster: Updated task ${id} status to ${status}`);
       return true;
     } catch (error) {
       console.error('Error updating task status in MCP:', error);
-      // Mark as unsynced for later sync
-      await taskStorage.updateTask(id, { syncedWithMCP: false });
-      return true; // Still return true since local update succeeded
+      return false;
+    }
+  }
+
+  async updateTask(id: string, updates: { title?: string; description?: string; priority?: 'high' | 'medium' | 'low' }): Promise<TaskMasterTask | null> {
+    if (!this.isConnected) {
+      console.error('❌ TaskMaster MCP not connected, cannot update task');
+      throw new Error('TaskMaster MCP not connected');
+    }
+    
+    console.log(`🔄 Attempting to update task ${id} with:`, updates);
+    
+    try {
+      // First try: Use set_task_title if available (most direct)
+      if (updates.title) {
+        try {
+          const titleResult = await this.callTool('set_task_title', { 
+            id: id,
+            title: updates.title,
+            projectRoot: process.cwd()
+          });
+          console.log(`✅ Successfully updated task ${id} title to "${updates.title}"`);
+          
+          // Get the updated task
+          const updatedTask = await this.getTask(id);
+          if (updatedTask) {
+            return updatedTask;
+          }
+        } catch (titleError) {
+          console.warn('⚠️ set_task_title not available, trying edit_task');
+        }
+      }
+      
+      // Second try: Use edit_task tool
+      try {
+        const result = await this.callTool('edit_task', { 
+          id: id,
+          title: updates.title,
+          description: updates.description,
+          priority: updates.priority,
+          projectRoot: process.cwd()
+        });
+        const updatedTask = this.parseTaskResponse(result);
+        
+        if (updatedTask) {
+          console.log(`✅ Successfully updated task ${id} via edit_task - "${updatedTask.title}"`);
+          return updatedTask;
+        }
+      } catch (editError) {
+        console.warn('⚠️ edit_task not available, using fallback delete+recreate');
+      }
+      
+      // Fallback: Delete and recreate (this should work with any claude-task-master version)
+      console.log(`🔄 Using fallback: delete and recreate task ${id}`);
+      
+      // Get current task first
+      const currentTask = await this.getTask(id);
+      if (!currentTask) {
+        console.error(`❌ Cannot get current task ${id} for fallback update`);
+        throw new Error(`Task ${id} not found for update`);
+      }
+      
+      console.log(`📋 Current task: "${currentTask.title}" -> New title: "${updates.title || currentTask.title}"`);
+      
+      // Delete the old task
+      const deleted = await this.deleteTask(id);
+      if (!deleted) {
+        console.error(`❌ Failed to delete task ${id} for fallback update`);
+        throw new Error(`Failed to delete task ${id} for update`);
+      }
+      
+      // Create new task with updated information
+      const newTaskDescription = updates.title || updates.description || currentTask.description || currentTask.title;
+      console.log(`🆕 Creating new task with: "${newTaskDescription}"`);
+      
+      const newTask = await this.createTask(newTaskDescription, updates.priority || currentTask.priority);
+      
+      if (newTask) {
+        console.log(`✅ Fallback update successful - recreated task as "${newTask.title}" (new ID: ${newTask.id})`);
+        return newTask;
+      } else {
+        console.error(`❌ Failed to create new task during fallback update`);
+        throw new Error('Failed to create new task during update');
+      }
+      
+    } catch (error) {
+      console.error(`❌ All update methods failed for task ${id}:`, error);
+      throw error;
     }
   }
 
   async expandTask(id: string): Promise<TaskMasterTask | null> {
     try {
-      const result = await this.callTool('expand_task', { task_id: id });
+      const result = await this.callTool('expand_task', { 
+        id: id,
+        projectRoot: process.cwd()
+      });
       return this.parseTaskResponse(result);
     } catch (error) {
       console.error('Error expanding task:', error);
@@ -310,7 +364,9 @@ class MCPTaskMasterClient {
 
   async analyzeProjectComplexity(): Promise<any> {
     try {
-      const result = await this.callTool('analyze_project_complexity', {});
+      const result = await this.callTool('analyze_project_complexity', {
+        projectRoot: process.cwd()
+      });
       return result;
     } catch (error) {
       console.error('Error analyzing project complexity:', error);
@@ -320,7 +376,10 @@ class MCPTaskMasterClient {
 
   async research(query: string): Promise<string> {
     try {
-      const result = await this.callTool('research', { query });
+      const result = await this.callTool('research', { 
+        query,
+        projectRoot: process.cwd()
+      });
       return result.content || result.text || 'No research results found';
     } catch (error) {
       console.error('Error performing research:', error);
@@ -330,11 +389,34 @@ class MCPTaskMasterClient {
 
   async getNextTask(): Promise<TaskMasterTask | null> {
     try {
-      const result = await this.callTool('next_task', {});
+      const result = await this.callTool('next_task', {
+        projectRoot: process.cwd()
+      });
       return this.parseTaskResponse(result);
     } catch (error) {
       console.error('Error getting next task:', error);
       return null;
+    }
+  }
+
+  async deleteTask(id: string): Promise<boolean> {
+    if (!this.isConnected) {
+      console.warn('TaskMaster MCP not connected, cannot delete task');
+      return false;
+    }
+    
+    try {
+      // Delete task directly from MCP - single source of truth
+      await this.callTool('remove_task', {
+        id: id,
+        projectRoot: process.cwd()
+      });
+      
+      console.log(`MCP TaskMaster: Deleted task ${id}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting task from MCP:', error);
+      return false;
     }
   }
 
@@ -375,42 +457,102 @@ class MCPTaskMasterClient {
   }
 
   private async syncUnsyncedTasks(): Promise<void> {
-    if (!this.isConnected) return;
-    
+    // No longer needed - MCP is the single source of truth
+    // This method has been simplified since we removed local storage sync
+    console.log('MCP TaskMaster: Using MCP as single source of truth, no sync needed');
+  }
+
+  async debugMCPStatus(): Promise<any> {
+    const debugInfo = {
+      connection: {
+        isConnected: this.isConnected,
+        clientExists: !!this.client,
+        transportExists: !!this.transport,
+        processExists: !!this.serverProcess,
+        reconnectAttempts: this.reconnectAttempts,
+        hasApiKey: false,
+      },
+      tools: null as any,
+      testOperations: {
+        getTasks: null as any,
+        createTask: null as any,
+        listTools: null as any,
+      },
+      errors: [] as string[],
+    };
+
+    console.log('🔍 Starting MCP TaskMaster debug check...');
+
     try {
-      const unsyncedTasks = await taskStorage.getUnsyncedTasks();
-      
-      for (const task of unsyncedTasks) {
+      // Check API key
+      const anthropicKey = await apiKeyManager.retrieveKey('anthropic');
+      debugInfo.connection.hasApiKey = !!anthropicKey;
+      if (!anthropicKey) {
+        debugInfo.errors.push('No Anthropic API key found');
+      }
+
+      // Test basic connection
+      if (this.client && this.isConnected) {
         try {
-          // Create task in MCP
-          const result = await this.callTool('add_task', {
-            description: task.description || task.title,
-            priority: task.priority,
-          });
-          
-          const mcpTask = this.parseTaskResponse(result);
-          if (mcpTask) {
-            // Update local task with MCP ID
-            await taskStorage.updateTask(task.id, {
-              id: mcpTask.id,
-              syncedWithMCP: true,
-            });
+          const tools = await this.client.listTools();
+          debugInfo.tools = tools.tools?.map(t => t.name) || [];
+          debugInfo.testOperations.listTools = 'SUCCESS';
+          console.log('✅ MCP tools available:', debugInfo.tools);
+        } catch (error) {
+          debugInfo.testOperations.listTools = `FAILED: ${error}`;
+          debugInfo.errors.push(`List tools failed: ${error}`);
+        }
+
+        // Test getTasks
+        try {
+          const tasks = await this.getTasks();
+          debugInfo.testOperations.getTasks = {
+            status: 'SUCCESS',
+            taskCount: tasks.length,
+            tasks: tasks.map(t => ({ id: t.id, title: t.title, status: t.status }))
+          };
+          console.log(`✅ Retrieved ${tasks.length} tasks from MCP`);
+        } catch (error) {
+          debugInfo.testOperations.getTasks = `FAILED: ${error}`;
+          debugInfo.errors.push(`Get tasks failed: ${error}`);
+        }
+
+        // Test createTask
+        try {
+          const testTask = await this.createTask('DEBUG TEST TASK - DELETE ME', 'low');
+          if (testTask) {
+            debugInfo.testOperations.createTask = {
+              status: 'SUCCESS',
+              taskId: testTask.id,
+              title: testTask.title
+            };
+            console.log(`✅ Created test task: ${testTask.title} (${testTask.id})`);
             
-            // Update status if different
-            if (task.status !== 'pending' && task.status !== mcpTask.status) {
-              await this.callTool('set_task_status', {
-                task_id: mcpTask.id,
-                status: task.status,
-              });
+            // Clean up test task
+            try {
+              await this.deleteTask(testTask.id);
+              console.log(`🗑️ Cleaned up test task ${testTask.id}`);
+            } catch (cleanupError) {
+              console.warn(`⚠️ Could not clean up test task: ${cleanupError}`);
             }
+          } else {
+            debugInfo.testOperations.createTask = 'FAILED: Returned null';
+            debugInfo.errors.push('Create task returned null');
           }
         } catch (error) {
-          console.error(`Failed to sync task ${task.id}:`, error);
+          debugInfo.testOperations.createTask = `FAILED: ${error}`;
+          debugInfo.errors.push(`Create task failed: ${error}`);
         }
+      } else {
+        debugInfo.errors.push('MCP client not connected');
       }
+
     } catch (error) {
-      console.error('Error syncing unsynced tasks:', error);
+      debugInfo.errors.push(`Debug check failed: ${error}`);
     }
+
+    console.log('🔍 MCP Debug Results:', JSON.stringify(debugInfo, null, 2));
+    return debugInfo;
   }
 
   registerIpcHandlers(): void {
@@ -428,6 +570,14 @@ class MCPTaskMasterClient {
 
     ipcMain.handle('taskMaster:updateStatus', async (_, id: string, status: string) => {
       return await this.updateTaskStatus(id, status as TaskMasterTask['status']);
+    });
+
+    ipcMain.handle('taskMaster:updateTask', async (_, id: string, updates: { title?: string; description?: string; priority?: 'high' | 'medium' | 'low' }) => {
+      return await this.updateTask(id, updates);
+    });
+
+    ipcMain.handle('taskMaster:deleteTask', async (_, id: string) => {
+      return await this.deleteTask(id);
     });
 
     ipcMain.handle('taskMaster:expandTask', async (_, id: string) => {
@@ -448,6 +598,10 @@ class MCPTaskMasterClient {
 
     ipcMain.handle('taskMaster:isConnected', async () => {
       return this.isConnected;
+    });
+
+    ipcMain.handle('taskMaster:debugMCPStatus', async () => {
+      return await this.debugMCPStatus();
     });
   }
 }

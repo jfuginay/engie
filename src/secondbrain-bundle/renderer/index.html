@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SecondBrain - AI Todo Terminal</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: #1e1e1e;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            overflow: hidden;
+            color: #ffffff;
+        }
+
+        #terminal-container {
+            height: 100vh;
+            width: 100vw;
+            padding: 20px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+        }
+
+        #terminal {
+            height: 100%;
+            width: 100%;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .prompt {
+            color: #00ff00;
+        }
+
+        .command {
+            color: #ffffff;
+        }
+
+        .output {
+            color: #cccccc;
+            margin: 5px 0;
+        }
+
+        .error {
+            color: #ff4444;
+        }
+
+        .success {
+            color: #44ff44;
+        }
+
+        .info {
+            color: #4488ff;
+        }
+
+        .warning {
+            color: #ffaa44;
+        }
+
+        input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            width: calc(100% - 100px);
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .cursor {
+            animation: blink 1s infinite;
+            background: #00ff00;
+            width: 8px;
+            height: 16px;
+            display: inline-block;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-container">
+        <div id="terminal"></div>
+    </div>
+    
+    <script src="simple-terminal.js"></script>
+</body>
+</html>

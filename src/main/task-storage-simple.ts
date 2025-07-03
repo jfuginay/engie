@@ -13,45 +13,12 @@ class TaskStorage {
   private isInitialized = false;
 
   async initialize(): Promise<void> {
-    console.log('TaskStorage initialized with in-memory storage');
-    this.isInitialized = true;
-    
-    // Add some initial mock tasks
-    const mockTasks: Array<Omit<StoredTask, 'id' | 'createdAt' | 'updatedAt'>> = [
-      {
-        title: 'Set up development environment',
-        description: 'Install dependencies and configure the project',
-        status: 'done',
-        priority: 'high',
-        dependencies: [],
-        subtasks: [],
-        syncedWithMCP: false,
-        localOnly: true,
-      },
-      {
-        title: 'Implement real TaskMaster MCP integration',
-        description: 'Connect to real TaskMaster MCP server for task management',
-        status: 'in-progress',
-        priority: 'high',
-        dependencies: [],
-        subtasks: [],
-        syncedWithMCP: false,
-        localOnly: true,
-      },
-      {
-        title: 'Add git hooks for project monitoring',
-        description: 'Automatically track code changes and create tasks',
-        status: 'pending',
-        priority: 'high',
-        dependencies: [],
-        subtasks: [],
-        syncedWithMCP: false,
-        localOnly: true,
-      },
-    ];
-
-    for (const task of mockTasks) {
-      await this.createTask(task);
+    try {
+      console.log('TaskStorage initialized with in-memory storage');
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize TaskStorage:', error);
+      throw new Error('TaskStorage initialization failed');
     }
   }
 

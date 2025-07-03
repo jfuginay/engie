@@ -1,0 +1,33 @@
+{
+  "id": "conv-1751483309962-4q2ozfxzq",
+  "startTime": "2025-07-02T19:08:29.962Z",
+  "lastActivity": "2025-07-02T19:14:40.706Z",
+  "messages": [
+    {
+      "id": 1751483317240,
+      "type": "user",
+      "text": "list all tasks",
+      "timestamp": "2025-07-02T19:08:37.240Z"
+    },
+    {
+      "id": 1751483393861,
+      "type": "assistant",
+      "text": "Based on the context, I'll display all current tasks in the system.\n\nYour Current Tasks:\n\n1. \"Task 1\"\n   - Status: Pending\n   - Priority: Medium\n   - Created: July 2, 2025 18:41:21\n\n2. \"Shoot demo video\"\n   - Status: Pending\n   - Priority: High\n   - Created: July 2, 2025 19:01:30\n   \n   Subtasks:\n   A. Pre-production Planning (High Priority)\n      - Create demo video script/outline\n      - Define key features to showcase\n      - Plan recording schedule\n   \n   B. Production Phase (High Priority)\n      - Setup recording environment\n      - Record screen captures\n      - Record voice-over\n   \n   C. Post-production (Medium Priority)\n      - Edit video footage\n      - Add transitions and effects\n      - Create title cards and captions\n      - Add background music\n   \n   D. Review and Finalization (Medium Priority)\n      - Internal review\n      - Implement feedback\n      - Final export\n      - Upload and distribution\n\nWould you like to:\n1. See more details about any specific task?\n2. Update the status of any tasks?\n3. Add new tasks?\n4. Modify existing tasks?\n\nLet me know how I can help you manage these tasks more effectively.",
+      "timestamp": "2025-07-02T19:09:53.860Z",
+      "thought": "Analyzing your request... Generating intelligent response with full context.",
+      "toolsUsed": [
+        "Claude (fallback)"
+      ]
+    },
+    {
+      "id": 1751483669885,
+      "type": "user",
+      "text": "list all tasks please",
+      "timestamp": "2025-07-02T19:14:29.885Z"
+    }
+  ],
+  "tasks": [],
+  "codeReferences": [],
+  "topics": [],
+  "mood": "neutral"
+}

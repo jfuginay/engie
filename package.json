@@ -2,8 +2,8 @@
   "name": "engie",
   "productName": "ENGIE - Enhanced Neural Gateway",
   "private": true,
-  "version": "1.0.0",
-  "main": "electron.js",
+  "version": "1.2.0",
+  "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
@@ -26,6 +26,7 @@
     "axios": "^1.10.0",
     "better-sqlite3": "^12.2.0",
     "bull": "^4.16.5",
+    "canvas": "^3.1.2",
     "chokidar": "^4.0.3",
     "chromadb": "^3.0.6",
     "clsx": "^2.1.1",
@@ -87,8 +88,8 @@
     },
     "files": [
       "dist/**/*",
-      "!node_modules/**/*",
-      "node_modules/**/*.node"
+      "assets/**/*",
+      "node_modules/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -120,6 +121,15 @@
           "path": "/Applications"
         }
       ]
+    },
+    "win": {
+      "icon": "assets/icons/icon.png",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "assets/icons",
+      "category": "Utility",
+      "target": "AppImage"
     }
   }
 }

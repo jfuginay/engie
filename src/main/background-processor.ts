@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { jobQueueManager, JobData, JobResult } from './job-queue';
+import { jobQueueManager, type JobData, type JobResult } from './job-queue';
 import { taskStorage } from './task-storage-simple';
 import { claudeAIService } from './claude-ai-service';
 import { ragSystem } from './rag-system';
@@ -100,47 +100,17 @@ export class BackgroundProcessor extends EventEmitter {
   }
 
   private async syncTasks(payload: any): Promise<JobResult> {
-    try {
-      // Get unsynced tasks from storage
-      const unsyncedTasks = await taskStorage.getUnsyncedTasks();
-      
-      if (unsyncedTasks.length === 0) {
-        return { success: true, data: { synced: 0 } };
-      }
-      
-      // Sync tasks with MCP if available
-      const { mcpTaskMasterClient } = await import('./mcp-taskmaster-client');
-      let syncedCount = 0;
-      
-      for (const task of unsyncedTasks) {
-        try {
-          // Try to create task in MCP
-          const mcpTask = await mcpTaskMasterClient.createTask(
-            task.description || task.title,
-            task.priority
-          );
-          
-          if (mcpTask) {
-            await taskStorage.updateTask(task.id, {
-              syncedWithMCP: true,
-            });
-            syncedCount++;
-          }
-        } catch (error) {
-          console.error(`Failed to sync task ${task.id}:`, error);
-        }
-      }
-      
-      return { 
-        success: true, 
-        data: { 
-          synced: syncedCount,
-          total: unsyncedTasks.length 
-        } 
-      };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    // No longer needed - MCP TaskMaster is the single source of truth
+    // Background sync is not needed since all operations go directly to MCP
+    console.log('Background task sync disabled - using MCP as single source of truth');
+    return { 
+      success: true, 
+      data: { 
+        message: 'Task sync not needed - MCP is single source of truth',
+        synced: 0,
+        total: 0 
+      } 
+    };
   }
 
   private async performAiAnalysis(payload: any): Promise<JobResult> {

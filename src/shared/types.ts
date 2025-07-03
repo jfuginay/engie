@@ -37,14 +37,6 @@ export interface SystemInfo {
   nodeVersion: string;
 }
 
-export interface Tab {
-  id: string;
-  type: 'chat' | 'terminal' | 'task';
-  title: string;
-  closeable: boolean;
-  data?: any;
-}
-
 export interface ApiProvider {
   name: string;
   displayName: string;
@@ -59,15 +51,4 @@ export interface EngieSettings {
   notifications: boolean;
   telemetry: boolean;
   shortcuts: Record<string, string>;
-}
-
-export interface IntelligenceInsights {
-  totalPatterns: number;
-  avgEffectiveness: number;
-  learningRate: number;
-  recentActivity: {
-    commits: number;
-    tasks: number;
-  };
-  recommendations: string[];
 }
