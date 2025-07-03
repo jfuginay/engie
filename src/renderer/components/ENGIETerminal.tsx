@@ -338,8 +338,7 @@ export const ENGIETerminal: React.FC = () => {
   };
 
   const showWelcome = () => {
-    const welcome = `
-╔══════════════════════════════════════════════════════════════╗
+    const welcome = `╔══════════════════════════════════════════════════════════════╗
 ║                        ENGIE Terminal                         ║
 ║           AI-Powered Development Assistant                   ║
 ║                     TERMINAL INTERFACE                       ║
@@ -357,8 +356,7 @@ export const ENGIETerminal: React.FC = () => {
 │ ⚡ Click 🔥 button to toggle to direct command mode         │
 └─────────────────────────────────────────────────────────────┘
 
-⚙️ Settings: Cmd+, • 🔄 Auto-refresh: 10s • Type "help" for commands
-`;
+⚙️ Settings: Cmd+, • 🔄 Auto-refresh: 10s • Type "help" for commands`;
     setHistory([{ content: welcome, type: 'welcome', timestamp: new Date() }]);
   };
 
@@ -784,6 +782,8 @@ ${generateInsight()}
                 ? 'bg-gray-800 bg-opacity-50 border-l-4 border-green-400'
                 : entry.type === 'system'
                 ? 'bg-dark-900 border-l-2 border-gray-600'
+                : entry.type === 'welcome'
+                ? 'bg-dark-900 border border-cyan-400 font-mono text-cyan-300'
                 : 'bg-dark-900'
             }`}
           >
