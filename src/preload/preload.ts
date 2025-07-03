@@ -26,6 +26,9 @@ const engieAPI = {
     getSuggestions: (context?: any) => ipcRenderer.invoke('ai:getSuggestions', context),
     initialize: () => ipcRenderer.invoke('ai:initialize'),
     isInitialized: () => ipcRenderer.invoke('ai:isInitialized'),
+    finalizeConversation: (conversationId: string) => ipcRenderer.invoke('ai:finalizeConversation', conversationId),
+    getConversationSummary: (conversationId: string) => ipcRenderer.invoke('ai:getConversationSummary', conversationId),
+    getAllActiveConversations: () => ipcRenderer.invoke('ai:getAllActiveConversations'),
   },
 
   // Claude AI Service
@@ -118,7 +121,7 @@ const engieAPI = {
 
   // IPC Event Listeners
   on: (channel: string, callback: (...args: any[]) => void) => {
-    const validChannels = ['open-settings', 'task-updated', 'claude-response'];
+    const validChannels = ['open-settings', 'task-updated', 'claude-response', 'tasks-updated', 'task-window-closed'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
     }
@@ -126,6 +129,35 @@ const engieAPI = {
 
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
+  },
+
+  taskWindow: {
+    open: () => ipcRenderer.invoke('taskWindow:open'),
+    close: () => ipcRenderer.invoke('taskWindow:close'),
+  },
+
+  // GitHub Manager
+  github: {
+    createProject: (options: any, workingDir: string) => ipcRenderer.invoke('github:createProject', options, workingDir),
+    createIssue: (repoPath: string, title: string, description: string, priority: 'high' | 'medium' | 'low') => 
+      ipcRenderer.invoke('github:createIssue', repoPath, title, description, priority),
+    isInitialized: () => ipcRenderer.invoke('github:isInitialized'),
+  },
+
+  // MCP Claude Client
+  mcpClaude: {
+    initialize: () => ipcRenderer.invoke('mcpClaude:initialize'),
+    isConnected: () => ipcRenderer.invoke('mcpClaude:isConnected'),
+    getTools: () => ipcRenderer.invoke('mcpClaude:getTools'),
+    getResources: () => ipcRenderer.invoke('mcpClaude:getResources'),
+    callTool: (toolName: string, args: any) => ipcRenderer.invoke('mcpClaude:callTool', toolName, args),
+    readFile: (filePath: string) => ipcRenderer.invoke('mcpClaude:readFile', filePath),
+    editFile: (filePath: string, oldString: string, newString: string) => 
+      ipcRenderer.invoke('mcpClaude:editFile', filePath, oldString, newString),
+    syncProject: (repoPath: string, context: any) => ipcRenderer.invoke('mcpClaude:syncProject', repoPath, context),
+    implementTask: (title: string, description: string, projectPath: string, context: any) => 
+      ipcRenderer.invoke('mcpClaude:implementTask', title, description, projectPath, context),
+    disconnect: () => ipcRenderer.invoke('mcpClaude:disconnect'),
   },
 };
 

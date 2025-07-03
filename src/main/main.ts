@@ -22,9 +22,12 @@ import { memorySystem } from './memory-system';
 import { taskStorage } from './task-storage-simple';
 import { vectorStore } from './vector-store-simple';
 import { terminalService } from './terminal-service';
+import { gitHubManager } from './github-manager';
+import { mcpClaudeClient } from './mcp-claude-client';
 
 class EngieApp {
   private mainWindow: BrowserWindow | null = null;
+  private taskWindow: BrowserWindow | null = null;
 
   constructor() {
     this.init();
@@ -81,6 +84,48 @@ class EngieApp {
 
     this.mainWindow.on('closed', () => {
       this.mainWindow = null;
+    });
+  }
+
+  private async createTaskWindow(): Promise<void> {
+    // Don't create if already exists
+    if (this.taskWindow && !this.taskWindow.isDestroyed()) {
+      this.taskWindow.focus();
+      return;
+    }
+
+    this.taskWindow = new BrowserWindow({
+      height: 600,
+      width: 800,
+      minHeight: 400,
+      minWidth: 600,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, '../preload/preload.js'),
+      },
+      titleBarStyle: 'hiddenInset',
+      show: false,
+      parent: this.mainWindow || undefined,
+    });
+
+    this.taskWindow.once('ready-to-show', () => {
+      this.taskWindow?.show();
+    });
+
+    // Load the task window
+    if (process.env.NODE_ENV === 'development') {
+      await this.taskWindow.loadURL('http://localhost:5173/task-window.html');
+    } else {
+      await this.taskWindow.loadFile(path.join(__dirname, '../renderer/task-window.html'));
+    }
+
+    this.taskWindow.on('closed', () => {
+      this.taskWindow = null;
+      // Notify main window that task window closed
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('task-window-closed');
+      }
     });
   }
 
@@ -156,6 +201,8 @@ class EngieApp {
       await ragSystem.initialize();
       await templateSystem.initialize();
       await memorySystem.initialize();
+      await gitHubManager.initialize();
+      await mcpClaudeClient.initialize();
       
       console.log('All services initialized, registering IPC handlers...');
       
@@ -187,6 +234,20 @@ class EngieApp {
       } catch (error) {
         console.error('❌ Failed to register AI Orchestrator IPC handlers:', error);
       }
+
+      try {
+        gitHubManager.registerIpcHandlers();
+        console.log('✅ GitHub Manager IPC handlers registered');
+      } catch (error) {
+        console.error('❌ Failed to register GitHub Manager IPC handlers:', error);
+      }
+
+      try {
+        mcpClaudeClient.registerIpcHandlers();
+        console.log('✅ MCP Claude Client IPC handlers registered');
+      } catch (error) {
+        console.error('❌ Failed to register MCP Claude Client IPC handlers:', error);
+      }
       
       // Set up terminal output forwarding
       this.setupTerminalForwarding();
@@ -217,6 +278,19 @@ class EngieApp {
         this.mainWindow.webContents.send('terminal:error', data);
       }
     });
+
+    // Broadcast task updates to both windows
+    const broadcastTaskUpdate = () => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('tasks-updated');
+      }
+      if (this.taskWindow && !this.taskWindow.isDestroyed()) {
+        this.taskWindow.webContents.send('tasks-updated');
+      }
+    };
+
+    // Manual broadcast when needed (after task operations)
+    ipcMain.on('broadcast-task-update', broadcastTaskUpdate);
   }
 
   private registerIpcHandlers() {
@@ -242,6 +316,17 @@ class EngieApp {
       } catch (error) {
         console.error('Debug Task Manager status failed:', error);
         return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    });
+
+    // Task Window handlers
+    ipcMain.handle('taskWindow:open', async () => {
+      await this.createTaskWindow();
+    });
+
+    ipcMain.handle('taskWindow:close', () => {
+      if (this.taskWindow && !this.taskWindow.isDestroyed()) {
+        this.taskWindow.close();
       }
     });
   }
