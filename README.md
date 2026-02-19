@@ -1,90 +1,417 @@
 # Engie
 
-Persistent AI project manager running natively on macOS. Tracks projects, monitors Jira/GitHub, sends daily standups, and handles coding tasks with safety guardrails.
+```
+  ·  engie v0.3.0          ← iris breathes: · • ● ◉ ● • ·
+  Good morning, Grant. 5 observations today · active: PORT-9, AD-1200
+    tip: /memory to search past context
+
+  ● gateway  ● claude  ● ollama  │  agent:engie:cli
+  engie > _
+```
+
+Persistent AI project manager running natively on macOS with Bun. Tracks projects across Jira and GitHub, sends daily briefs via Telegram, learns from every conversation, and handles coding tasks through a smart router that picks the right brain for the job.
+
+---
 
 ## Quick Start
 
 ```bash
-# Install Bun (if not already installed)
+# 1. Install Bun
 brew install oven-sh/bun/bun
 
-# Install the CLI globally
+# 2. Install the CLI
 cd cli && bun install && bun link
 
-# Run the setup wizard
+# 3. Install the MCP bridge deps
+cd ../mcp-bridge && npm install
+
+# 4. Run the setup wizard
 engie init
 ```
 
-The setup wizard handles everything: installing OpenClaw, configuring services, generating configs, and starting launchd services.
+The setup wizard handles everything: installing OpenClaw, configuring the gateway, generating configs, setting up launchd services, and verifying connectivity.
+
+---
 
 ## Usage
 
+### Interactive TUI
+
 ```bash
-# Interactive chat
 engie
+```
 
-# One-shot query
+Opens the Ink-based terminal UI with:
+- Breathing iris pulse indicator (alive = gateway connected)
+- Context-aware banner showing today's observations and active tickets
+- Rotating tips for commands and recent activity
+- Markdown-rendered assistant responses
+- Service health status bar
+
+### One-Shot Queries
+
+```bash
 engie "what's the status of PORT-9?"
+engie "summarize yesterday's blockers"
+engie "what did I work on this week?"
+```
 
-# Service management
-engie status          # health table
-engie doctor          # diagnostics
-engie doctor --fix    # auto-repair
-engie start           # start all services
+Runs the query, prints the response, and exits. Observations are captured automatically.
+
+### Service Management
+
+```bash
+engie status          # service health table
+engie doctor          # run diagnostics
+engie doctor --fix    # auto-repair common issues
+engie start           # start all launchd services
 engie stop            # stop all services
 ```
 
+### Memory & Observations
+
+```bash
+# Save an observation from the command line
+engie observe task_update "Finished PORT-12 API integration" --project portal --tag PORT-12
+
+# Search memory in the TUI
+/memory PORT-9
+/memory blockers
+
+# Save a quick note in the TUI
+/observe need to follow up on AD-1206 IAM permissions
+```
+
+### TUI Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all available commands |
+| `/memory [query]` | Search memory (no query = show recent) |
+| `/observe <text>` | Save an observation to memory |
+| `/status` | Inline service health check |
+| `/session` | Show current session key |
+| `/clear` | Clear message history |
+| `/quit` | Exit (also `/exit`, `/q`) |
+
+---
+
 ## Architecture
 
-Engie runs natively on macOS with three launchd services:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        macOS (always-on)                    │
+│                                                             │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐    │
+│  │   OpenClaw    │   │  Claude Code  │   │    Ollama     │    │
+│  │   Gateway     │   │    Proxy      │   │  (Metal GPU)  │    │
+│  │  :18789 (ws)  │   │  :18791 (http)│   │  :11434       │    │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘    │
+│         │                  │                   │            │
+│         │    Smart Router (complexity scoring)  │            │
+│         │    ┌────────────────────────────┐     │            │
+│         │    │  score >= 0.6 → Claude     │     │            │
+│         │    │  score <  0.6 → Ollama     │     │            │
+│         │    └────────────────────────────┘     │            │
+│         │                                       │            │
+│  ┌──────┴───────────────────────────────────────┘           │
+│  │                                                          │
+│  │  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  │
+│  │  │  CLI    │  │ Telegram │  │  Mobile  │  │  MCP    │  │
+│  │  │  TUI    │  │   Bot    │  │   App    │  │ Bridge  │  │
+│  │  └─────────┘  └──────────┘  └──────────┘  └─────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Memory System (SQLite + FTS5)                       │   │
+│  │  Auto-captures decisions, blockers, tickets, prefs   │   │
+│  │  ~/.engie/memory/engie.db                            │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
 
-- **OpenClaw gateway** (port 18789) — always-on AI agent framework
-- **Claude Code proxy** (port 18791) — wraps `claude` CLI for heavy-brain tasks
-- **Ollama** (port 11434) — local LLM for quick tasks (llama3.2, llama3.1)
+### Services
 
-Clients connect to the gateway via WebSocket:
-- **CLI TUI** — Ink-based terminal interface (`engie`)
-- **Mobile app** — React Native/Expo (`engie-mobile/`)
-- **Telegram** — bot integration for on-the-go
-- **Slack** — workspace integration
+All three services are managed by launchd and auto-start on boot:
+
+| Service | Port | launchd Label | Purpose |
+|---------|------|---------------|---------|
+| OpenClaw Gateway | 18789 | `com.engie.gateway` | Agent framework, WebSocket API |
+| Claude Code Proxy | 18791 | `com.engie.claude-proxy` | Wraps `claude` CLI for heavy tasks |
+| Ollama | 11434 | `homebrew.mxcl.ollama` | Local LLM (llama3.2 3B, llama3.1 8B), Apple Silicon Metal GPU |
+
+### Smart Router
+
+The router scores each message for complexity (0.0–1.0) and picks the backend:
+
+- **Claude Code** (score >= 0.6): refactoring, multi-file edits, code generation, debugging, architecture
+- **Ollama** (score < 0.6): status checks, summaries, simple questions, standups
+
+Scoring factors: keyword patterns, message length, presence of code blocks, explicit hints.
+
+---
+
+## Memory System
+
+Engie learns from every interaction via a SQLite + FTS5 memory database.
+
+### How It Works
+
+```
+User message + Assistant response
+        │
+        ▼
+┌──────────────────────┐
+│  extract-observations │ ← pattern matching
+│                      │
+│  • Jira tickets      │   PORT-9, AD-1200, MMA-42
+│  • Decisions         │   "let's go with", "decided to"
+│  • Blockers          │   "blocked by", "waiting on"
+│  • Preferences       │   "always use", "prefer"
+│  • Task completions  │   "merged", "deployed", "done with"
+│  • Chat exchanges    │   every non-trivial message
+└──────────┬───────────┘
+           ▼
+     ~/.engie/memory/engie.db
+           │
+           ▼
+  ┌────────────────┐
+  │  TUI Banner    │  "3 observations today · active: PORT-9"
+  │  /memory       │  full-text search across all observations
+  │  Cron context  │  morning brief pulls recent memory
+  │  Chat context  │  auto-injected into messages
+  └────────────────┘
+```
+
+### Observation Types
+
+| Type | Trigger | Example |
+|------|---------|---------|
+| `task_update` | "merged", "deployed", "done with" | Finished PORT-12 integration |
+| `decision` | "let's", "going with", "decided to" | Going with JWT over session cookies |
+| `blocker` | "blocked by", "waiting on" | Blocked by AD-1206 IAM permission |
+| `preference` | "always use", "prefer" | Prefer Bun over Node for new scripts |
+| `insight` | Manual or cron-detected | hosDB-reports is a separate cluster |
+| `chat_exchange` | Every non-trivial exchange | Baseline record of the conversation |
+
+### Querying Memory
+
+```bash
+# From the TUI
+/memory PORT-9                    # full-text search
+/memory                           # show 10 most recent
+
+# From the CLI
+engie observe insight "The replication cron runs at 2 AM UTC" --project reports
+
+# Programmatic (Bun)
+bun -e "
+  const { search, getStats } = await import('./cli/lib/memory-db.js');
+  console.log(search('blocker'));
+  console.log(getStats());
+"
+```
+
+---
+
+## Cron Jobs
+
+Two automated jobs run on weekdays via the OpenClaw scheduler:
+
+### Morning Brief — 8:00 AM PT
+
+Checks Jira (PORT, MMA, AD, DLV boards), GitHub activity, and memory for continuity. Delivers a formatted brief to Telegram:
+
+```
+☀️ Morning Brief — Tuesday Feb 18
+
+🔴 Top Priority Today
+1. PORT-9 lab data API — due Feb 20
+2. AD-1200 Cognito pool fix — waiting on PR merge
+3. PORT-12 Quest normalization — 3 PRs drafted
+
+⚠️ Blockers
+- AD-1206 IAM permission (unassigned)
+
+📅 Due This Week
+- PORT-9 (Feb 20)
+```
+
+Each finding is stored as a structured observation via `engie_observe`.
+
+### Afternoon Follow-up — 2:00 PM PT
+
+Checks for Jira updates since morning, continues any pending handoff work, and stores status changes as observations.
+
+---
+
+## MCP Bridge
+
+The MCP bridge (`mcp-bridge/index.mjs`) exposes Engie's capabilities as MCP tools for use by other AI agents (including Claude Code itself):
+
+| Tool | Description |
+|------|-------------|
+| `engie_chat` | Send a message and get a response |
+| `engie_observe` | Store a structured observation in memory |
+| `engie_claude` | Route a task to Claude Code (heavy brain) |
+| `engie_route` | Check which backend should handle a task |
+| `engie_status` | Gateway health check |
+| `engie_system_status` | Full system health (gateway + proxy + Ollama) |
+| `engie_history` | Retrieve conversation history |
+| `engie_sessions` | List or reset sessions |
+| `engie_config` | Read gateway configuration |
+| `engie_raw` | Call any gateway method directly |
+
+### External MCP Integrations
+
+Engie connects to external services via MCP servers configured in the gateway:
+
+- **Jira** — ticket tracking, sprint management, board queries
+- **Slack** — channel messaging, thread replies, canvas automation
+- **Figma** — design screenshots, metadata, code connect
+
+---
 
 ## Project Structure
 
 ```
 engie/
-├── cli/                      # CLI + TUI (Bun, Ink, React)
-│   ├── bin/engie.mjs         # Entry point + subcommand router
-│   ├── commands/             # Subcommands (chat, init, status, doctor, start, stop)
-│   ├── lib/                  # Core modules (paths, services, memory-db, profile)
-│   ├── src/gateway.mjs       # WebSocket client for OpenClaw
-│   └── tui/                  # Ink TUI components + hooks
-├── engie-mobile/             # React Native app (Expo)
-├── shared/                   # Shared constants, theme, types
-├── mcp-bridge/               # Claude Code ↔ OpenClaw bridge
-├── scripts/                  # Service scripts (gateway, proxy)
-├── config/                   # OpenClaw config, identity, env
-├── workspace/                # Skills and persistent data
-├── memory/                   # Structured memory (SQLite + markdown)
-└── cron/                     # Scheduled jobs
+├── cli/                            # CLI + TUI (Bun runtime)
+│   ├── bin/engie.mjs               # Entry point, subcommand router
+│   ├── commands/                   # Subcommands
+│   │   ├── chat.mjs                #   Interactive + one-shot chat
+│   │   ├── init.mjs                #   Setup wizard
+│   │   ├── status.mjs              #   Service health table
+│   │   ├── doctor.mjs              #   Diagnostics + auto-repair
+│   │   ├── start.mjs               #   Start launchd services
+│   │   ├── stop.mjs                #   Stop launchd services
+│   │   └── observe.mjs             #   Write observation from CLI
+│   ├── lib/                        # Core modules
+│   │   ├── paths.js                #   All path resolution (single source)
+│   │   ├── services.js             #   launchd service management
+│   │   ├── memory-db.js            #   SQLite + FTS5 memory system
+│   │   ├── memory-context.js       #   Auto-inject context into messages
+│   │   ├── extract-observations.js #   Pattern-based observation extraction
+│   │   ├── profile.js              #   User profile + context builder
+│   │   ├── config-gen.js           #   Config file generation
+│   │   ├── prereqs.js              #   Prerequisite checks
+│   │   └── log-rotation.js         #   Log file management
+│   ├── src/
+│   │   └── gateway.mjs             # WebSocket client for OpenClaw
+│   └── tui/                        # Ink TUI
+│       ├── App.js                  #   Root component
+│       ├── lib/theme.js            #   Colors, version, branding
+│       ├── components/             #   UI components
+│       │   ├── Banner.js           #     Iris pulse + context + tips
+│       │   ├── StatusBar.js        #     Service health indicators
+│       │   ├── InputPrompt.js      #     Message input
+│       │   ├── MessageHistory.js   #     Scrollable message list
+│       │   ├── AssistantMessage.js  #     Markdown-rendered response
+│       │   ├── StreamingMessage.js  #     Live streaming text
+│       │   ├── UserMessage.js      #     User message bubble
+│       │   ├── SystemMessage.js    #     System/slash command output
+│       │   ├── ErrorBanner.js      #     Error display
+│       │   └── WelcomeScreen.js    #     First-run welcome
+│       └── hooks/                  #   React hooks
+│           ├── useGateway.js       #     WebSocket ↔ React state bridge
+│           ├── useSlashCommands.js  #     /command handler
+│           ├── useServiceHealth.js  #     Health polling
+│           ├── useInputHistory.js   #     Arrow-key input history
+│           └── useMemory.js        #     Memory DB access
+├── mcp-bridge/                     # MCP server (Node runtime)
+│   ├── index.mjs                   #   Tool definitions + gateway client
+│   └── lib/
+│       └── observe.mjs             #   Bun subprocess for DB writes
+├── scripts/                        # Service management
+│   ├── start-gateway.sh            #   Gateway launcher (sources .env)
+│   ├── claude-code-proxy.mjs       #   HTTP proxy → claude CLI
+│   ├── router.mjs                  #   Complexity-based backend router
+│   ├── com.engie.claude-proxy.plist #  launchd service definition
+│   ├── install-proxy-service.sh    #   Service installer
+│   └── start-proxy.sh              #   Proxy launcher
+├── shared/                         # Shared across CLI + mobile
+│   ├── constants.js                #   Ports, versions, service names
+│   └── types.js                    #   JSDoc type definitions
+├── cron/                           # Scheduled jobs
+│   └── jobs.json                   #   Morning brief + afternoon follow-up
+├── config/                         # OpenClaw config (symlinked from ~/.openclaw)
+├── engie-mobile/                   # React Native app (Expo) — Phase 2
+├── workspace/                      # Skills, tools, persistent data
+├── memory/                         # SQLite DB + markdown notes
+└── logs/                           # Service output, archived logs
 ```
+
+---
 
 ## Configuration
 
-All paths resolve dynamically via `cli/lib/paths.js`. The canonical home directory is `~/.engie/` with a symlink `~/.openclaw → ~/.engie/config` for OpenClaw compatibility.
+All paths resolve dynamically via `cli/lib/paths.js`. The canonical home is `~/.engie/` with a compatibility symlink:
 
-Override with `ENGIE_HOME` environment variable.
+```
+~/.openclaw → ~/.engie/config/
+```
 
-## MCP Integration
+Override with the `ENGIE_HOME` environment variable.
 
-Engie bridges Claude Code with external tools via MCP:
-- **Jira** — ticket tracking, sprint management
-- **Slack** — channel messaging, thread replies
-- **Figma** — design screenshots, metadata
+### Key Config Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `openclaw.json` | `~/.engie/config/` | Gateway config (agents, models, ports) |
+| `.env` | `~/.engie/config/` | API keys, Jira creds (never committed) |
+| `user.json` | `~/.engie/profile/` | User profile (name, role, org) |
+| `preferences.json` | `~/.engie/profile/` | Learned preferences |
+| `patterns.json` | `~/.engie/profile/` | Work patterns (active hours, session lengths) |
+| `engie.db` | `~/.engie/memory/` | SQLite memory database |
+| `jobs.json` | `~/.engie/cron/` | Scheduled job definitions |
+
+---
+
+## Banner & Pulse
+
+The TUI banner is a living indicator of Engie's state:
+
+```
+◉ engie v0.3.0                              ← peak (bright cyan)
+● engie v0.3.0                              ← expanding
+• engie v0.3.0                              ← contracting
+· engie v0.3.0                              ← seed (dim)
+```
+
+The iris pulse cycles through 4 shapes (`· • ● ◉`) with a 24-step sine-wave color gradient over ~3 seconds. Color breathes between bright cyan (`#06b6d4`) and deep teal (`#0c3d4a`). The animation is precomputed at startup — zero runtime math, just an index increment every 130ms.
+
+Below the version line:
+- **Context line**: observation count + active Jira tickets from recent memory
+- **Tips line**: rotates every 30 seconds between dynamic context and static command hints
+
+---
 
 ## Guardrails
 
-- Never pushes to main/master/prod
+- Never pushes to main/master/prod without explicit approval
 - Never deploys to production without approval
 - Never modifies .env, terraform, or CI configs without approval
 - Always notifies the operator of every action
 - Max 5 PRs per day without explicit request
+- Destructive commands are blocked by pre-execution hooks
+
+---
+
+## Tech Stack
+
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| CLI Runtime | Bun | Built-in SQLite, fast startup |
+| TUI Framework | Ink 5 + React 18 | Terminal UI via React components |
+| MCP Bridge | Node + @modelcontextprotocol/sdk | Stdio transport |
+| Agent Framework | OpenClaw | Gateway, agents, cron, sessions |
+| Local LLM | Ollama | llama3.2 (3B), llama3.1 (8B), Metal GPU |
+| Heavy Brain | Claude Code CLI | Proxied via HTTP for agent access |
+| Memory | SQLite + FTS5 | Full-text search, auto-observation capture |
+| Mobile | React Native / Expo | Phase 2 (planned) |
+| Messaging | Telegram Bot API | Daily briefs, on-the-go queries |
+
+---
+
+## License
+
+Private project. Not open source.
