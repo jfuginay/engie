@@ -18,11 +18,11 @@
  */
 
 /**
- * @typedef {'task_update' | 'code_change' | 'decision' | 'blocker' | 'preference' | 'insight'} ObservationType
+ * @typedef {'task_update' | 'code_change' | 'decision' | 'blocker' | 'preference' | 'insight' | 'chat_exchange'} ObservationType
  */
 
 /**
- * @typedef {'jira_cron' | 'chat' | 'code_review' | 'manual'} ObservationSource
+ * @typedef {'jira_cron' | 'chat' | 'cli-oneshot' | 'tui' | 'mcp' | 'code_review' | 'manual'} ObservationSource
  */
 
 /**

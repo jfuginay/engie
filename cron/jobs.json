@@ -17,7 +17,7 @@
       "wakeMode": "now",
       "payload": {
         "kind": "agentTurn",
-        "message": "Morning brief time. Do the following:\n1. Check Jira PORT, MMA, AD, and DLV boards for: overdue tickets, tickets due this week, in-progress tickets with no recent updates (48h+), and any high-priority items.\n2. Check recent GitHub activity on MarekHealth repos (hos-portal-api, hos-core-ui) — any overnight PRs merged, CI failures, deploys.\n3. Pull top 3 most urgent action items for J.\n4. Check memory for yesterday's notes for continuity.\n5. Deliver a concise morning brief to J via Telegram in this format:\n\n☀️ Morning Brief — [Day Date]\n\n🔴 Top Priority Today\n1. [Most urgent item + due date]\n2. [Second]\n3. [Third]\n\n⚠️ Blockers\n- [Blocked tickets or stale items]\n\n📅 Due This Week\n- [Tickets due in next 5 days]\n\nKeep it under 300 words. Lead with what needs action today."
+        "message": "Morning brief time. Do the following:\n1. Check Jira PORT, MMA, AD, and DLV boards for: overdue tickets, tickets due this week, in-progress tickets with no recent updates (48h+), and any high-priority items.\n2. Check recent GitHub activity on MarekHealth repos (hos-portal-api, hos-core-ui) — any overnight PRs merged, CI failures, deploys.\n3. Pull top 3 most urgent action items for J.\n4. Check memory for yesterday's notes for continuity.\n5. Deliver a concise morning brief to J via Telegram in this format:\n\n☀️ Morning Brief — [Day Date]\n\n🔴 Top Priority Today\n1. [Most urgent item + due date]\n2. [Second]\n3. [Third]\n\n⚠️ Blockers\n- [Blocked tickets or stale items]\n\n📅 Due This Week\n- [Tickets due in next 5 days]\n\nKeep it under 300 words. Lead with what needs action today.\n\n6. For each finding (blockers, task updates, insights), call engie_observe with the appropriate type, summary, and tags (e.g. ticket IDs). This stores structured data in memory for future context."
       },
       "delivery": {
         "mode": "announce",
@@ -48,7 +48,7 @@
       "wakeMode": "now",
       "payload": {
         "kind": "agentTurn",
-        "message": "Afternoon follow-up. Check for any new Jira updates on the PORT board since this morning. If workspace/HANDOFF.md exists and has pending work, continue it. Log progress to memory/{{date}}.md."
+        "message": "Afternoon follow-up. Check for any new Jira updates on the PORT board since this morning. If workspace/HANDOFF.md exists and has pending work, continue it. For each status change or finding, call engie_observe with the appropriate type (task_update, blocker, insight), a concise summary, and relevant tags (ticket IDs). This replaces logging to memory/*.md files."
       },
       "delivery": {
         "mode": "announce",

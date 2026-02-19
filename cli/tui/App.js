@@ -31,8 +31,9 @@ export function App({ gateway, sessionKey }) {
   });
 
   const handleSubmit = useCallback(
-    (text) => {
-      if (handleCommand(text)) return;
+    async (text) => {
+      const handled = await handleCommand(text);
+      if (handled) return;
       sendMessage(text);
     },
     [handleCommand, sendMessage]

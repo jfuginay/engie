@@ -177,13 +177,20 @@ export function getContext() {
 
   let recentObs = [];
   let upcomingDeadlines = [];
+  let todayCount = 0;
 
   const memDb = getMemoryDb();
   if (memDb) {
     try {
-      recentObs = memDb.getRecentContext("*", 5);
+      recentObs = memDb.getRecentAll(5);
     } catch {
       // Memory DB not available yet — fine on first run
+    }
+
+    try {
+      todayCount = memDb.getTodayCount();
+    } catch {
+      // DB not ready
     }
 
     try {
@@ -197,6 +204,7 @@ export function getContext() {
     greeting,
     recentObs,
     upcomingDeadlines,
+    todayCount,
   };
 }
 

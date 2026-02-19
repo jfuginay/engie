@@ -301,6 +301,44 @@ export function deleteObservation(id) {
 }
 
 /**
+ * Get recent observations across all projects — no project filter.
+ *
+ * @param {number} limit - Max number of observations (default 10).
+ * @returns {Array} Recent observations ordered newest first.
+ */
+export function getRecentAll(limit = 10) {
+  const db = getDb();
+
+  const rows = db
+    .prepare(
+      `SELECT id, type, timestamp, project, summary, tags, source
+       FROM observations
+       ORDER BY timestamp DESC
+       LIMIT ?`
+    )
+    .all(limit);
+
+  return rows.map((row) => ({
+    ...row,
+    tags: row.tags ? JSON.parse(row.tags) : [],
+  }));
+}
+
+/**
+ * Count observations recorded today (UTC).
+ *
+ * @returns {number}
+ */
+export function getTodayCount() {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const row = db
+    .prepare("SELECT COUNT(*) as count FROM observations WHERE timestamp >= ?")
+    .get(today + "T00:00:00.000Z");
+  return row?.count ?? 0;
+}
+
+/**
  * Get observation count and DB stats.
  *
  * @returns {{ totalObservations, byType: object, byProject: object, dbSizeBytes: number }}

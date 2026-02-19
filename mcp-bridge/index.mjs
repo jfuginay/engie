@@ -6,6 +6,7 @@ import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
+import { writeObservation } from "./lib/observe.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -617,6 +618,47 @@ server.tool(
           }, null, 2),
         }],
       };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${e.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool: engie_observe — write a structured observation to memory
+server.tool(
+  "engie_observe",
+  "Store a structured observation in Engie's memory. Use this to record decisions, blockers, task updates, insights, and preferences discovered during work.",
+  {
+    type: z.enum(["task_update", "code_change", "decision", "blocker", "preference", "insight", "chat_exchange"]).describe("Observation type"),
+    summary: z.string().describe("Concise summary of the observation"),
+    project: z.string().optional().describe("Project name (e.g., 'patient-portal', 'engie')"),
+    details: z.string().optional().describe("Additional details or context"),
+    tags: z.array(z.string()).optional().describe("Tags for categorization (e.g., ticket IDs like 'PORT-9')"),
+  },
+  async ({ type, summary, project, details, tags }) => {
+    try {
+      const result = writeObservation({
+        type,
+        summary,
+        project: project || null,
+        details: details || null,
+        tags: tags || [],
+        source: "mcp",
+      });
+
+      if (result.ok) {
+        return {
+          content: [{ type: "text", text: `Observation stored: ${result.id}` }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Failed to store observation: ${result.error}` }],
+          isError: true,
+        };
+      }
     } catch (e) {
       return {
         content: [{ type: "text", text: `Error: ${e.message}` }],

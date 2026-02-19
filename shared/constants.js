@@ -38,12 +38,16 @@ export const OBSERVATION_TYPES = [
   "blocker",
   "preference",
   "insight",
+  "chat_exchange",
 ];
 
 // Observation sources
 export const OBSERVATION_SOURCES = [
   "jira_cron",
   "chat",
+  "cli-oneshot",
+  "tui",
+  "mcp",
   "code_review",
   "manual",
 ];

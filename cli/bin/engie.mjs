@@ -26,6 +26,8 @@ const HELP = `
     engie doctor [--fix]      Diagnostics
     engie start               Start all services
     engie stop                Stop all services
+    engie observe [type] <text> [--project p] [--tag t]
+                              Save an observation to memory
 
   ${chalk.cyan("Options:")}
     -s, --session <key>   Session key (default: agent:engie:cli)
@@ -33,15 +35,17 @@ const HELP = `
     -v, --version         Show version
 
   ${chalk.cyan("Chat commands:")}
-    /quit, /exit, /q      Exit
-    /clear                Clear screen
-    /session              Show session key
-    /help                 Available commands
-    /status               Inline service health
+    /quit, /exit, /q           Exit
+    /clear                     Clear screen
+    /session                   Show session key
+    /help                      Available commands
+    /status                    Inline service health
+    /memory [query]            Search memory DB
+    /observe <text>            Save observation to memory
 `;
 
 // Subcommands that map to command modules
-const SUBCOMMANDS = new Set(["init", "status", "doctor", "start", "stop"]);
+const SUBCOMMANDS = new Set(["init", "status", "doctor", "start", "stop", "observe"]);
 
 async function main() {
   const args = process.argv.slice(2);
@@ -97,6 +101,10 @@ async function main() {
     }
     case "stop": {
       const { run } = await import("../commands/stop.mjs");
+      return run({ args: subArgs });
+    }
+    case "observe": {
+      const { run } = await import("../commands/observe.mjs");
       return run({ args: subArgs });
     }
     default:

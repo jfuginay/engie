@@ -5,6 +5,8 @@ import { readFileSync } from "fs";
 import chalk from "chalk";
 import { GatewayClient } from "../src/gateway.mjs";
 import { findConfig } from "../lib/paths.js";
+import { extractAndStore } from "../lib/extract-observations.js";
+import { injectContext } from "../lib/memory-context.js";
 
 /**
  * Run chat mode.
@@ -67,6 +69,10 @@ export async function run({ oneshot = null, sessionKey = "agent:engie:cli" } = {
       if (payload?.state === "final" || payload?.state === "error") {
         if (payload?.state === "error") {
           process.stderr.write(chalk.red(`\nError: ${payload.errorMessage || "Unknown"}\n`));
+        }
+        // Extract observations before exiting
+        if (payload?.state === "final") {
+          try { extractAndStore(oneshot, result, "cli-oneshot"); } catch {}
         }
         process.stdout.write("\n");
         done = true;

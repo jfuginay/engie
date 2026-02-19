@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { extractAndStore } from "../../lib/extract-observations.js";
+import { injectContext } from "../../lib/memory-context.js";
 
 let msgCounter = 0;
 
@@ -23,6 +25,7 @@ export function useGateway(gw, sessionKey) {
 
   // Track accumulated text for delta diffing (same approach as repl.mjs)
   const accumulatedRef = useRef("");
+  const lastUserMsgRef = useRef("");
 
   // Subscribe to gateway events
   useEffect(() => {
@@ -92,6 +95,12 @@ export function useGateway(gw, sessionKey) {
           ]);
         }
 
+        // Fire-and-forget observation extraction
+        const userText = lastUserMsgRef.current;
+        if (userText && finalText) {
+          setTimeout(() => extractAndStore(userText, finalText, "tui"), 0);
+        }
+
         setStreamText("");
         accumulatedRef.current = "";
         setBusy(false);
@@ -137,15 +146,18 @@ export function useGateway(gw, sessionKey) {
       setBusy(true);
       accumulatedRef.current = "";
       setStreamText("");
+      lastUserMsgRef.current = text;
 
-      // Add user message to history
+      // Add user message to history (show raw text, not context-injected)
       setMessages((prev) => [
         ...prev,
         { id: `u-${++msgCounter}`, role: "user", text },
       ]);
 
       try {
-        await gw.chat(sessionKey, text);
+        // Inject recent memory context as prefix — fails silently if DB unavailable
+        const messageWithContext = await injectContext(text);
+        await gw.chat(sessionKey, messageWithContext);
         // Response arrives via agent/chat events
       } catch (err) {
         setError(err.message);
