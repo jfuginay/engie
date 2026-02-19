@@ -22,7 +22,7 @@
  */
 
 /**
- * @typedef {'jira_cron' | 'chat' | 'cli-oneshot' | 'tui' | 'mcp' | 'code_review' | 'manual'} ObservationSource
+ * @typedef {'jira_cron' | 'chat' | 'cli-oneshot' | 'tui' | 'mcp' | 'code_review' | 'manual' | 'mobile'} ObservationSource
  */
 
 /**

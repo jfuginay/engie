@@ -7,6 +7,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { writeObservation } from "./lib/observe.mjs";
+import { queryRecent, querySearch, queryStats, queryProfile } from "./lib/memory-query.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -664,6 +665,108 @@ server.tool(
         content: [{ type: "text", text: `Error: ${e.message}` }],
         isError: true,
       };
+    }
+  }
+);
+
+// ── Memory read tools ──────────────────────────────────────────────────────
+
+// Tool: engie_memory_search — full-text search across observations
+server.tool(
+  "engie_memory_search",
+  "Search Engie's memory for past observations, decisions, blockers, and insights. Uses full-text search with optional filters.",
+  {
+    query: z.string().describe("Search query (FTS5 syntax supported, e.g. 'PORT-9 blocker')"),
+    type: z.enum(["task_update", "code_change", "decision", "blocker", "preference", "insight", "chat_exchange"]).optional().describe("Filter by observation type"),
+    project: z.string().optional().describe("Filter by project name"),
+    limit: z.number().optional().describe("Max results (default 20)"),
+  },
+  async ({ query, type, project, limit }) => {
+    try {
+      const opts = {};
+      if (type) opts.type = type;
+      if (project) opts.project = project;
+      if (limit) opts.limit = limit;
+
+      const results = querySearch(query, opts);
+
+      if (results.error) {
+        return { content: [{ type: "text", text: `Search error: ${results.error}` }], isError: true };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: engie_memory_recent — get recent observations
+server.tool(
+  "engie_memory_recent",
+  "Get the most recent observations from Engie's memory, across all projects.",
+  {
+    limit: z.number().optional().describe("Number of observations to return (default 10)"),
+  },
+  async ({ limit }) => {
+    try {
+      const results = queryRecent(limit || 10);
+
+      if (results.error) {
+        return { content: [{ type: "text", text: `Query error: ${results.error}` }], isError: true };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: engie_memory_stats — memory DB statistics
+server.tool(
+  "engie_memory_stats",
+  "Get statistics about Engie's memory: observation counts by type and project, database size.",
+  {},
+  async () => {
+    try {
+      const stats = queryStats();
+
+      if (stats.error) {
+        return { content: [{ type: "text", text: `Stats error: ${stats.error}` }], isError: true };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(stats, null, 2) }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: engie_memory_profile — read user profile and preferences
+server.tool(
+  "engie_memory_profile",
+  "Read the user's profile and preferences. Use this to understand who you're talking to and how they prefer to work.",
+  {},
+  async () => {
+    try {
+      const data = queryProfile();
+
+      if (data.error) {
+        return { content: [{ type: "text", text: `Profile error: ${data.error}` }], isError: true };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
     }
   }
 );

@@ -39,6 +39,15 @@ export default function RootLayout() {
           }}
         />
         <Tabs.Screen
+          name="memory"
+          options={{
+            title: 'Memory',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="bulb-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="status"
           options={{
             title: 'Status',

@@ -50,4 +50,5 @@ export const OBSERVATION_SOURCES = [
   "mcp",
   "code_review",
   "manual",
+  "mobile",
 ];
