@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "6f977d1c-a2e2-45f3-baea-d90ceae75293",
+      "agentId": "engie",
+      "name": "Morning Brief",
+      "enabled": true,
+      "createdAtMs": 1771289943856,
+      "updatedAtMs": 1771457248268,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * 1-5",
+        "tz": "America/Los_Angeles"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Morning brief time. Do the following:\n1. Check Jira PORT, MMA, AD, and DLV boards for: overdue tickets, tickets due this week, in-progress tickets with no recent updates (48h+), and any high-priority items.\n2. Check recent GitHub activity on MarekHealth repos (hos-portal-api, hos-core-ui) — any overnight PRs merged, CI failures, deploys.\n3. Pull top 3 most urgent action items for J.\n4. Check memory for yesterday's notes for continuity.\n5. Deliver a concise morning brief to J via Telegram in this format:\n\n☀️ Morning Brief — [Day Date]\n\n🔴 Top Priority Today\n1. [Most urgent item + due date]\n2. [Second]\n3. [Third]\n\n⚠️ Blockers\n- [Blocked tickets or stale items]\n\n📅 Due This Week\n- [Tickets due in next 5 days]\n\nKeep it under 300 words. Lead with what needs action today."
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "telegram",
+        "bestEffort": true
+      },
+      "state": {
+        "nextRunAtMs": 1771516800000,
+        "lastRunAtMs": 1771430529549,
+        "lastStatus": "ok",
+        "lastDurationMs": 7099,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "b3a67c67-3045-405a-bdb4-9e17ed076aae",
+      "agentId": "engie",
+      "name": "Afternoon Follow-up",
+      "enabled": true,
+      "createdAtMs": 1771289950483,
+      "updatedAtMs": 1771457255434,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 14 * * 1-5",
+        "tz": "America/Los_Angeles"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Afternoon follow-up. Check for any new Jira updates on the PORT board since this morning. If workspace/HANDOFF.md exists and has pending work, continue it. Log progress to memory/{{date}}.md."
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "telegram",
+        "bestEffort": true
+      },
+      "state": {
+        "nextRunAtMs": 1771538400000,
+        "lastRunAtMs": 1771452000008,
+        "lastStatus": "error",
+        "lastDurationMs": 32337,
+        "consecutiveErrors": 1,
+        "lastError": "cron announce delivery failed"
+      }
+    }
+  ]
+}
